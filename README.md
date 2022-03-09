@@ -1,0 +1,2 @@
+# trading
+Crypto trading
