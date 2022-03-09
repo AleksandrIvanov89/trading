@@ -1,0 +1,23 @@
+version: "3.9"
+networks:
+  mongodb-network:
+    name: mongodb-network
+    driver: bridge
+    ipam:
+        config:
+          - subnet: 172.16.57.0/24
+services:
+  exchanges-collector:
+    build:
+      context: .
+    image: ohlcv-collector:$VERSION
+    container_name: ohlcv-collector
+    networks:
+      - mongodb-network
+    ports:
+      - "8051:8051"
+    environment:
+      - TARGET=$TARGET
+      - MONGO_USERNAME=$MONGO_USERNAME
+      - MONGO_PASSWORD=$MONGO_PASSWORD
+    restart: unless-stopped
