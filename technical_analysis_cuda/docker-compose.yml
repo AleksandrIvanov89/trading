@@ -1,0 +1,26 @@
+version: "3.9"
+networks:
+  mongodb-network:
+    name: mongodb-network
+    driver: bridge
+    ipam:
+        config:
+          - subnet: 172.16.57.0/24
+services:
+  cudata:
+    build:
+      context: .
+    image: cudata:$VERSION
+    container_name: cudata
+    runtime: nvidia
+    networks:
+      - mongodb-network
+    ports:
+      - "8010:8010"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - TARGET=$TARGET
+      - MONGO_USERNAME=$MONGO_USERNAME
+      - MONGO_PASSWORD=$MONGO_PASSWORD
+      - NUMBA_CUDA_DRIVER=/usr/lib/x86_64-linux-gnu/libcuda.so
+    restart: unless-stopped

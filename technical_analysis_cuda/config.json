@@ -1,0 +1,17 @@
+{
+    "exchange": "binance",
+    "symbol": "BTC/USDT",
+    "period": "1h",
+    "technical indicators": [
+        {
+            "function": "moving_average",
+            "windows_n": 1,
+            "windows": [12, 24]
+        },
+        {
+            "function": "exponential_moving_average",
+            "windows_n": 1,
+            "windows": [12, 24]
+        }
+    ]
+}
