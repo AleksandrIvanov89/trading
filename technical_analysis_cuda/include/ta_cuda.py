@@ -651,3 +651,119 @@ def stochastic_oscillator_d_ema(ohlcv, windows, temp_arr, out, res_index, blocks
     """
     for i, window_i in enumerate(windows):
         stochastic_oscillator_d_ema_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr, out, res_index + i)
+
+
+
+##################################
+# TRIX 
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:])')
+def trix_kernel(ohlcv, window_size, temp_arr_1, temp_arr_2, out):
+    """
+    Calculate TRIX for given data.
+    https://en.wikipedia.org/wiki/Trix_(technical_analysis)
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_res = ohlcv[pos - n, OHLCV_CLOSE]
+        for i in range(1 - n, 1):
+            temp_res = ohlcv[pos + i, OHLCV_CLOSE] * k + temp_res * (1.0 - k)
+        temp_arr_1[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = temp_arr_1[pos - n]
+        for i in range(1 - n, 1):
+            temp_res = temp_arr_1[pos + i] * k + temp_res * (1.0 - k)
+        temp_arr_2[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = temp_arr_2[pos - n]
+        for i in range(1 - n, 1):
+            temp_res = temp_arr_2[pos + i] * k + temp_res * (1.0 - k)
+        temp_arr_1[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = 0.0
+        if temp_arr_1[pos - 1] != 0:
+            temp_res = (temp_arr_1[pos] - temp_arr_1[pos - 1]) / temp_arr_1[pos - 1]
+        
+        out[pos] = temp_res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:,:], int64)')
+def trix_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2, out, res_index):
+    """
+    Calculate TRIX for given data.
+    https://en.wikipedia.org/wiki/Trix_(technical_analysis)
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_res = ohlcv[pos - n, OHLCV_CLOSE]
+        for i in range(1 - n, 1):
+            temp_res = ohlcv[pos + i, OHLCV_CLOSE] * k + temp_res * (1.0 - k)
+        temp_arr_1[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = temp_arr_1[pos - n]
+        for i in range(1 - n, 1):
+            temp_res = temp_arr_1[pos + i] * k + temp_res * (1.0 - k)
+        temp_arr_2[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = temp_arr_2[pos - n]
+        for i in range(1 - n, 1):
+            temp_res = temp_arr_2[pos + i] * k + temp_res * (1.0 - k)
+        temp_arr_1[pos] = temp_res
+
+        cuda.syncthreads()
+
+        temp_res = 0.0
+        if temp_arr_1[pos - 1] != 0:
+            temp_res = (temp_arr_1[pos] - temp_arr_1[pos - 1]) / temp_arr_1[pos - 1]
+
+        out[pos, res_index] = temp_res
+
+
+def trix(ohlcv, windows, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
+    """
+    Calculate TRIX for given data.
+    https://en.wikipedia.org/wiki/Trix_(technical_analysis)
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    :param blocks_per_grid: CUDA blocks per grid
+    :param threads_per_block: CUDA threads per block
+    """
+    for i, window_i in enumerate(windows):
+        trix_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr_1, temp_arr_2, out, res_index + i)
+
