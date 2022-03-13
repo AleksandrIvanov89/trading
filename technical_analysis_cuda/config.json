@@ -6,12 +6,51 @@
         {
             "function": "moving_average",
             "windows_n": 1,
-            "windows": [12, 24]
+            "windows": [12, 24],
+            "temp_arr": false
         },
         {
             "function": "exponential_moving_average",
             "windows_n": 1,
-            "windows": [12, 24]
+            "windows": [12, 24],
+            "temp_arr": false
+        },
+        {
+            "function": "momentum",
+            "windows_n": 1,
+            "windows": [1, 24],
+            "temp_arr": false
+        },
+        {
+            "function": "rate_of_change",
+            "windows_n": 1,
+            "windows": [1, 24],
+            "temp_arr": false
+        },
+        {
+            "function": "average_true_range",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": true
+        },
+        {
+            "function": "stochastic_oscillator_k",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": false
+        },
+        {
+            "function": "stochastic_oscillator_d_ma",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": true
+        },
+        {
+            "function": "stochastic_oscillator_d_ema",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": true
         }
+        
     ]
 }
