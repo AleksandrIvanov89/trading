@@ -46,7 +46,7 @@ with open('config.json') as json_file:
 
     tech_inds_n = 0
     for function_i in json_data["technical indicators"]:
-        tech_inds_n += len(function_i["windows"])
+        tech_inds_n += len(function_i["windows"]) if len(function_i["windows"]) > 0 else 1
 
     temp_1_gpu_mem = cuda.device_array(shape=timeline.shape[0], dtype=np.float64)
     temp_2_gpu_mem = cuda.device_array(shape=timeline.shape[0], dtype=np.float64)
@@ -82,20 +82,35 @@ with open('config.json') as json_file:
             globals()[ta_function](**ta_params)
         
         elif function_i["temp_arr"] == 2:
-    
-            ta_params = {
-                "ohlcv": timeline_gpu_mem,
-                "windows": function_i["windows"],
-                "temp_arr_1": temp_1_gpu_mem,
-                "temp_arr_2": temp_1_gpu_mem,
-                "out": result_gpu_mem,
-                "res_index": res_index,
-                "blocks_per_grid": blocks_per_grid,
-                "threads_per_block": threads_per_block
-                }
-            globals()[ta_function](**ta_params)
+            if len(function_i["params"]) == 0:
+
+                ta_params = {
+                    "ohlcv": timeline_gpu_mem,
+                    "windows": function_i["windows"],
+                    "temp_arr_1": temp_1_gpu_mem,
+                    "temp_arr_2": temp_2_gpu_mem,
+                    "out": result_gpu_mem,
+                    "res_index": res_index,
+                    "blocks_per_grid": blocks_per_grid,
+                    "threads_per_block": threads_per_block
+                    }
+                globals()[ta_function](**ta_params)
+
+            else:
+
+                ta_params = {
+                    "ohlcv": timeline_gpu_mem,
+                    "param": function_i["params"][0],
+                    "temp_arr_1": temp_1_gpu_mem,
+                    "temp_arr_2": temp_2_gpu_mem,
+                    "out": result_gpu_mem,
+                    "res_index": res_index,
+                    "blocks_per_grid": blocks_per_grid,
+                    "threads_per_block": threads_per_block
+                    }
+                globals()[ta_function](**ta_params)
             
-        res_index += len(function_i["windows"])
+        res_index += len(function_i["windows"]) if len(function_i["windows"]) > 0 else 1
     
     
 

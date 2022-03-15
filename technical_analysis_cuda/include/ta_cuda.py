@@ -653,7 +653,6 @@ def stochastic_oscillator_d_ema(ohlcv, windows, temp_arr, out, res_index, blocks
         stochastic_oscillator_d_ema_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr, out, res_index + i)
 
 
-
 ##################################
 # TRIX 
 ##################################
@@ -767,3 +766,245 @@ def trix(ohlcv, windows, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid
     for i, window_i in enumerate(windows):
         trix_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr_1, temp_arr_2, out, res_index + i)
 
+
+##################################
+# Mass Index 
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:])')
+def mass_index_kernel(ohlcv, periods_per_day, temp_arr_1, temp_arr_2, out):
+    """
+    Calculate the Mass Index for given data.
+    https://en.wikipedia.org/wiki/Mass_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param periods_per_day: number of periods in 1 day
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(9, pos)
+    k = 2.0 / (n + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = ohlcv[pos - n, OHLCV_HIGH] - ohlcv[pos - n, OHLCV_LOW]
+
+        for i in range(1 - n, 1):
+            temp_arr_1[pos] = (ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW]) * k + temp_arr_1[pos] * (1.0 - k)
+
+    cuda.syncthreads()
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_2[pos] = temp_arr_1[pos - n]
+        for i in range(1 - n, 1):
+            temp_arr_2[pos] = temp_arr_1[pos + i] * k + temp_arr_2[pos] * (1.0 - k)
+
+    cuda.syncthreads()
+
+    if 24 < pos < ohlcv.shape[0]:
+        out[pos] = 0.0
+        for i in range(-24, 1):
+            out[pos] += temp_arr_1[pos + i] / temp_arr_2[pos + i]
+    
+        out[pos] /= periods_per_day
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:,:], int64)')
+def mass_index_kernel_n(ohlcv, periods_per_day, temp_arr_1, temp_arr_2, out, res_index):
+    """
+    Calculate the Mass Index for given data.
+    https://en.wikipedia.org/wiki/Mass_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param periods_per_day: number of periods in 1 day
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(9 * periods_per_day, pos)
+    k = 2.0 / (n + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = ohlcv[pos - n, OHLCV_HIGH] - ohlcv[pos - n, OHLCV_LOW]
+
+        for i in range(1 - n, 1):
+            temp_arr_1[pos] = (ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW]) * k + temp_arr_1[pos] * (1.0 - k)
+
+    cuda.syncthreads()
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_2[pos] = temp_arr_1[pos - n]
+        for i in range(1 - n, 1):
+            temp_arr_2[pos] = temp_arr_1[pos + i] * k + temp_arr_2[pos] * (1.0 - k)
+
+    cuda.syncthreads()
+
+    if 24 * periods_per_day < pos < ohlcv.shape[0]:
+        out[pos, res_index] = 0.0
+        for i in range(-24 * periods_per_day, 1):
+            out[pos, res_index] += temp_arr_1[pos + i] / temp_arr_2[pos + i]
+        out[pos, res_index] /= periods_per_day
+
+
+def mass_index(ohlcv, param, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
+    """
+    Calculate the Mass Index for given data.
+    https://en.wikipedia.org/wiki/Mass_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param param: number of periods in 1 day
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    :param blocks_per_grid: CUDA blocks per grid
+    :param threads_per_block: CUDA threads per block
+    """
+    mass_index_kernel_n[blocks_per_grid, threads_per_block](ohlcv, param, temp_arr_1, temp_arr_2, out, res_index)
+
+
+##################################
+# Vortex Indicator
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def vortex_indicator_plus_kernel(ohlcv, window_size, out):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    
+    if n + 1 < pos < ohlcv.shape[0]:
+        true_range = 0.0
+        vortex_movement_plus = 0.0
+        for i in range(-n, 1):
+            true_range += max(
+                ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW],
+                abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_CLOSE]),
+                abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_CLOSE]))
+            vortex_movement_plus += abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_LOW])
+        if true_range != 0.0:
+            out[pos] = vortex_movement_plus / true_range
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def vortex_indicator_plus_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    
+    if n + 1 < pos < ohlcv.shape[0]:
+        true_range = 0.0
+        vortex_movement_plus = 0.0
+        for i in range(-n, 1):
+            true_range += max(
+                ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW],
+                abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_CLOSE]),
+                abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_CLOSE]))
+            vortex_movement_plus += abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_LOW])
+        if true_range != 0.0:
+            out[pos, res_index] = vortex_movement_plus / true_range
+
+
+def vortex_indicator_plus(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    :param blocks_per_grid: CUDA blocks per grid
+    :param threads_per_block: CUDA threads per block
+    """
+    for i, window_i in enumerate(windows):
+        vortex_indicator_plus_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def vortex_indicator_minus_kernel(ohlcv, window_size, out):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    
+    if n + 1 < pos < ohlcv.shape[0]:
+        true_range = 0.0
+        vortex_movement_minus = 0.0
+        for i in range(-n, 1):
+            true_range += max(
+                ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW],
+                abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_CLOSE]),
+                abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_CLOSE]))
+            vortex_movement_minus += abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_HIGH])
+        if true_range != 0.0:
+            out[pos] = vortex_movement_minus / true_range
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def vortex_indicator_minus_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    
+    if n + 1 < pos < ohlcv.shape[0]:
+        true_range = 0.0
+        vortex_movement_minus = 0.0
+        for i in range(-n, 1):
+            true_range += max(
+                ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i, OHLCV_LOW],
+                abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_CLOSE]),
+                abs(ohlcv[pos + i, OHLCV_HIGH] - ohlcv[pos + i - 1, OHLCV_CLOSE]))
+            vortex_movement_minus += abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_HIGH])
+        if true_range != 0.0:
+            out[pos, res_index] = vortex_movement_minus / true_range
+
+
+def vortex_indicator_minus(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
+    """
+    Calculate the Vortex Indicator for given data.
+    https://en.wikipedia.org/wiki/Vortex_indicator
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    :param blocks_per_grid: CUDA blocks per grid
+    :param threads_per_block: CUDA threads per block
+    """
+    for i, window_i in enumerate(windows):
+        vortex_indicator_minus_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)

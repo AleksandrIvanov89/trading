@@ -7,55 +7,85 @@
             "function": "moving_average",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 0
+            "temp_arr": 0,
+            "params": []
         },
         {
             "function": "exponential_moving_average",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 0
+            "temp_arr": 0,
+            "params": []
         },
         {
             "function": "momentum",
             "windows_n": 1,
             "windows": [1, 24],
-            "temp_arr": 0
+            "temp_arr": 0,
+            "params": []
         },
         {
             "function": "rate_of_change",
             "windows_n": 1,
             "windows": [1, 24],
-            "temp_arr": 0
+            "temp_arr": 0,
+            "params": []
         },
         {
             "function": "average_true_range",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 1
+            "temp_arr": 1,
+            "params": []
         },
         {
             "function": "stochastic_oscillator_k",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 0
+            "temp_arr": 0,
+            "params": []
         },
         {
             "function": "stochastic_oscillator_d_ma",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 1
+            "temp_arr": 1,
+            "params": []
         },
         {
             "function": "stochastic_oscillator_d_ema",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 1
+            "temp_arr": 1,
+            "params": []
         },
         {
             "function": "trix",
             "windows_n": 1,
             "windows": [12, 24],
-            "temp_arr": 2
+            "temp_arr": 2,
+            "params": []
+        },
+        {
+            "function": "mass_index",
+            "windows_n": 0,
+            "windows": [],
+            "temp_arr": 2,
+            "params": [24]
+        },
+        {
+            "function": "vortex_indicator_plus",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": 0,
+            "params": []
+        },
+        {
+            "function": "vortex_indicator_minus",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": 0,
+            "params": []
         }
         
     ]
