@@ -1008,3 +1008,115 @@ def vortex_indicator_minus(ohlcv, windows, out, res_index, blocks_per_grid, thre
     """
     for i, window_i in enumerate(windows):
         vortex_indicator_minus_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
+
+
+##################################
+# Relative Strength Index
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:])')
+def relative_strength_index_kernel(ohlcv, window_size, temp_arr_1, temp_arr_2, out):
+    """
+    Calculate Relative Strength Index(RSI) for given data.
+    https://en.wikipedia.org/wiki/Relative_strength_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    temp_arr_1[pos] = 0.0
+    temp_arr_2[pos] = 0.0
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        u = 0.0
+        d = 0.0
+
+        delta = ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]
+        if delta > 0.0:
+            u = delta
+        else:
+            d = abs(delta)
+        
+        temp_arr_1[pos] = u
+        temp_arr_2[pos] = d
+
+        cuda.syncthreads()
+
+        res_u = temp_arr_1[pos - n]
+        res_d = temp_arr_2[pos - n]
+
+        for i in range(1 - n, 1):
+            res_u = temp_arr_1[pos + i] * k + res_u * (1.0 - k)
+            res_d = temp_arr_2[pos + i] * k + res_d * (1.0 - k)
+        
+        if (res_d != 0.0) and (res_u / res_d != -1.0):
+            out[pos] = 100.0 - 100.0 / (1.0 + res_u / res_d)
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:,:], int64)')
+def relative_strength_index_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2, out, res_index):
+    """
+    Calculate Relative Strength Index(RSI) for given data.
+    https://en.wikipedia.org/wiki/Relative_strength_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    temp_arr_1[pos] = 0.0
+    temp_arr_2[pos] = 0.0
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        u = 0.0
+        d = 0.0
+
+        delta = ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]
+        if delta > 0.0:
+            u = delta
+        else:
+            d = abs(delta)
+        
+        temp_arr_1[pos] = u
+        temp_arr_2[pos] = d
+
+        cuda.syncthreads()
+
+        res_u = temp_arr_1[pos - n]
+        res_d = temp_arr_2[pos - n]
+
+        for i in range(1 - n, 1):
+            res_u = temp_arr_1[pos + i] * k + res_u * (1.0 - k)
+            res_d = temp_arr_2[pos + i] * k + res_d * (1.0 - k)
+        
+        if (res_d != 0.0) and (res_u / res_d != -1.0):
+            out[pos, res_index] = 100.0 - 100.0 / (1.0 + res_u / res_d)
+        
+
+def relative_strength_index(ohlcv, windows, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
+    """
+    Calculate Relative Strength Index(RSI) for given data.
+    https://en.wikipedia.org/wiki/Relative_strength_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: link to GPU memory with temporary array for calculations
+    :param temp_arr_2: link to GPU memory with temporary array for calculations
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    :param blocks_per_grid: CUDA blocks per grid
+    :param threads_per_block: CUDA threads per block
+    """
+    for i, window_i in enumerate(windows):
+        relative_strength_index_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr_1, temp_arr_2, out, res_index + i)

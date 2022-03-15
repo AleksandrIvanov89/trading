@@ -86,6 +86,13 @@
             "windows": [12, 24],
             "temp_arr": 0,
             "params": []
+        },
+        {
+            "function": "relative_strength_index",
+            "windows_n": 1,
+            "windows": [12, 24],
+            "temp_arr": 2,
+            "params": []
         }
         
     ]
