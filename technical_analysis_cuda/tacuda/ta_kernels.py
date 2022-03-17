@@ -1,7 +1,6 @@
 import math
 from numba import cuda, float32, int32, jit
-import os
-import numpy as np
+
 
 OHLCV_TIMESTAMP = 0
 OHLCV_OPEN = 1
@@ -9,41 +8,6 @@ OHLCV_HIGH = 2
 OHLCV_LOW = 3
 OHLCV_CLOSE = 4
 OHLCV_VOLUME = 5
-
-
-##################################
-# CUDA preparation functions
-##################################
-
-def cuda_blocks_per_grid(length, threads_per_block):
-    """
-    Calculate the number of cuda blocks per grid for length of an array
-    
-    :param length: lenght of the array
-    :param threads_per_block: the number of threads per block
-    """
-    return math.ceil(length / threads_per_block)
-
-
-def cuda_blocks_per_grid_2d(shape, threads_per_block_2d):
-    """
-    Calculate the number of cuda blocks per grid for length of an 2d array
-
-    :param shape: shape of the 2d array
-    :param threads_per_block: the number of threads per block
-    """
-    return (int(math.ceil(shape[0] / threads_per_block_2d[0])),
-            int(math.ceil(shape[1] / threads_per_block_2d[1])))
-
-
-def cuda_device_info():
-    """
-    Print cuda and GPU information
-    """
-    os.system('nvcc --version')
-    os.system('nvidia-smi')
-    print(cuda.detect())
-
 
 ##################################
 # Moving Average
@@ -85,28 +49,12 @@ def moving_average_kernel_n(ohlcv, window_size, out, res_index):
     pos = cuda.grid(1)
     n = min(window_size, pos)
     res = 0.0
-    
+        
     if (pos < ohlcv.shape[0]) and (n > 0):
         for i in range(1 - n, 1):
             res += ohlcv[pos + i, OHLCV_CLOSE]
-    
+        
         out[pos, res_index] = res / n
-
-
-def moving_average(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the moving average for the given data.
-    https://en.wikipedia.org/wiki/Moving_average
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        moving_average_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
 
 
 ##################################
@@ -162,21 +110,6 @@ def exponential_moving_average_kernel_n(ohlcv, window_size, out, res_index):
     
         out[pos, res_index] = res
 
-def exponential_moving_average(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the exponential moving average for the given data.
-    https://en.wikipedia.org/wiki/Moving_average
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        exponential_moving_average_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
-
 
 ##################################
 # Momentum
@@ -222,22 +155,6 @@ def momentum_kernel_n(ohlcv, step, out, res_index):
         out[pos, res_index] = res
 
 
-def momentum(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the momentum for the given data.
-    https://en.wikipedia.org/wiki/Momentum_(technical_analysis)
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of steps between values
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        momentum_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
-
-
 ##################################
 # Rate of Change
 ##################################
@@ -280,22 +197,6 @@ def rate_of_change_kernel_n(ohlcv, window_size, out, res_index):
         res = (ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - window_size + 1, OHLCV_CLOSE]) / ohlcv[pos - window_size + 1, OHLCV_CLOSE]
     
         out[pos, res_index] = res
-
-
-def rate_of_change(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the rate of change for the given data.
-    https://en.wikipedia.org/wiki/Momentum_(technical_analysis)
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of steps between values
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        rate_of_change_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
 
 
 ##################################
@@ -360,23 +261,6 @@ def average_true_range_kernel_n(ohlcv, window_size, temp_arr, out, res_index):
         out[pos, res_index] = res
 
 
-def average_true_range(ohlcv, windows, temp_arr, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the average true range for the given data.
-    https://en.wikipedia.org/wiki/Average_true_range
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param temp_arr: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        average_true_range_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr, out, res_index + i)
-
-
 ##################################
 # Stochastic Oscillator
 ##################################
@@ -439,22 +323,6 @@ def stochastic_oscillator_k_kernel_n(ohlcv, window_size, out, res_index):
             res = (ohlcv[pos, OHLCV_CLOSE] - low_n) / diff * 100.0
         
         out[pos, res_index] = res
-
-
-def stochastic_oscillator_k(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate stochastic oscillator %K for given data.
-    https://en.wikipedia.org/wiki/Stochastic_oscillator
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        stochastic_oscillator_k_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
 
 
 @cuda.jit('void(float64[:,:], int64, float64[:], float64[:])')
@@ -533,23 +401,6 @@ def stochastic_oscillator_d_ma_kernel_n(ohlcv, window_size, temp_arr, out, res_i
             res += temp_arr[pos + i]
     
         out[pos, res_index] = res / n
-
-
-def stochastic_oscillator_d_ma(ohlcv, windows, temp_arr, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate stochastic oscillator %D with moving average for given data.
-    https://en.wikipedia.org/wiki/Stochastic_oscillator
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param temp_arr: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        stochastic_oscillator_d_ma_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr, out, res_index + i)
 
 
 @cuda.jit('void(float64[:,:], int64, float64[:], float64[:])')
@@ -634,23 +485,6 @@ def stochastic_oscillator_d_ema_kernel_n(ohlcv, window_size, temp_arr, out, res_
             res = temp_arr[pos + i] * k + res * (1.0 - k)
     
         out[pos, res_index] = res
-
-
-def stochastic_oscillator_d_ema(ohlcv, windows, temp_arr, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate stochastic oscillator %D with exponential moving average for given data.
-    https://en.wikipedia.org/wiki/Stochastic_oscillator
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param temp_arr: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        stochastic_oscillator_d_ema_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr, out, res_index + i)
 
 
 ##################################
@@ -749,24 +583,6 @@ def trix_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2, out, res_index):
         out[pos, res_index] = temp_res
 
 
-def trix(ohlcv, windows, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate TRIX for given data.
-    https://en.wikipedia.org/wiki/Trix_(technical_analysis)
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param temp_arr_1: link to GPU memory with temporary array for calculations
-    :param temp_arr_2: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        trix_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr_1, temp_arr_2, out, res_index + i)
-
-
 ##################################
 # Mass Index 
 ##################################
@@ -850,23 +666,6 @@ def mass_index_kernel_n(ohlcv, periods_per_day, temp_arr_1, temp_arr_2, out, res
         out[pos, res_index] /= periods_per_day
 
 
-def mass_index(ohlcv, param, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the Mass Index for given data.
-    https://en.wikipedia.org/wiki/Mass_index
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param param: number of periods in 1 day
-    :param temp_arr_1: link to GPU memory with temporary array for calculations
-    :param temp_arr_2: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    mass_index_kernel_n[blocks_per_grid, threads_per_block](ohlcv, param, temp_arr_1, temp_arr_2, out, res_index)
-
-
 ##################################
 # Vortex Indicator
 ##################################
@@ -925,22 +724,6 @@ def vortex_indicator_plus_kernel_n(ohlcv, window_size, out, res_index):
             out[pos, res_index] = vortex_movement_plus / true_range
 
 
-def vortex_indicator_plus(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the Vortex Indicator for given data.
-    https://en.wikipedia.org/wiki/Vortex_indicator
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        vortex_indicator_plus_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
-
-
 @cuda.jit('void(float64[:,:], int64, float64[:])')
 def vortex_indicator_minus_kernel(ohlcv, window_size, out):
     """
@@ -992,22 +775,6 @@ def vortex_indicator_minus_kernel_n(ohlcv, window_size, out, res_index):
             vortex_movement_minus += abs(ohlcv[pos + i, OHLCV_LOW] - ohlcv[pos + i - 1, OHLCV_HIGH])
         if true_range != 0.0:
             out[pos, res_index] = vortex_movement_minus / true_range
-
-
-def vortex_indicator_minus(ohlcv, windows, out, res_index, blocks_per_grid, threads_per_block):
-    """
-    Calculate the Vortex Indicator for given data.
-    https://en.wikipedia.org/wiki/Vortex_indicator
-
-    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
-    """
-    for i, window_i in enumerate(windows):
-        vortex_indicator_minus_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, out, res_index + i)
 
 
 ##################################
@@ -1102,21 +869,235 @@ def relative_strength_index_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2,
         
         if (res_d != 0.0) and (res_u / res_d != -1.0):
             out[pos, res_index] = 100.0 - 100.0 / (1.0 + res_u / res_d)
-        
 
-def relative_strength_index(ohlcv, windows, temp_arr_1, temp_arr_2, out, res_index, blocks_per_grid, threads_per_block):
+
+##################################
+# True Strength Index
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, int64, float64[:], float64[:], float64[:], float64[:], float64[:])')
+def true_strength_index_kernel(ohlcv, r, s, temp_arr_1, temp_arr_2, temp_arr_3, temp_arr_4, out):
     """
-    Calculate Relative Strength Index(RSI) for given data.
-    https://en.wikipedia.org/wiki/Relative_strength_index
+    Calculate True Strength Index (TSI) for given data.
+    https://en.wikipedia.org/wiki/True_strength_index
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param temp_arr_3: temporary array
+    :param temp_arr_4: temporary array
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    n1 = min(r, pos)
+    n2 = min(s, pos)
+    k1 = 2.0 / (n1 + 1.0)
+    k2 = 2.0 / (n2 + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        delta = ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]
+        temp_arr_1[pos] = delta
+        temp_arr_2[pos] = abs(delta)
+
+        cuda.syncthreads()
+
+        temp_arr_3[pos] = temp_arr_1[pos - n1]
+        temp_arr_4[pos] = temp_arr_2[pos - n1]
+
+        for i in range(1 - n1, 1):
+            temp_arr_3[pos] = temp_arr_1[pos + i] * k1 + temp_arr_3[pos] * (1.0 - k1)
+            temp_arr_4[pos] = temp_arr_2[pos + i] * k1 + temp_arr_4[pos] * (1.0 - k1)
+
+        cuda.syncthreads()
+
+        temp_arr_1[pos] = temp_arr_3[pos - n2]
+        temp_arr_2[pos] = temp_arr_4[pos - n2]
+
+        for i in range(1 - n2, 1):
+            temp_arr_1[pos] = temp_arr_3[pos + i] * k2 + temp_arr_1[pos] * (1.0 - k1)
+            temp_arr_2[pos] = temp_arr_4[pos + i] * k2 + temp_arr_2[pos] * (1.0 - k1)
+
+        out[pos] = 100.0 * temp_arr_3[pos] / temp_arr_4[pos]
+
+
+@cuda.jit('void(float64[:,:], int64, int64, float64[:], float64[:], float64[:], float64[:], float64[:,:], int64)')
+def true_strength_index_kernel_n(ohlcv, r, s, temp_arr_1, temp_arr_2, temp_arr_3, temp_arr_4, out, res_index):
+    """
+    Calculate True Strength Index (TSI) for given data.
+    https://en.wikipedia.org/wiki/True_strength_index
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param temp_arr_3: temporary array
+    :param temp_arr_4: temporary array
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n1 = min(r, pos)
+    n2 = min(s, pos)
+    k1 = 2.0 / (n1 + 1.0)
+    k2 = 2.0 / (n2 + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        delta = ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]
+        temp_arr_1[pos] = delta
+        temp_arr_2[pos] = abs(delta)
+
+        cuda.syncthreads()
+
+        temp_arr_3[pos] = temp_arr_1[pos - n1]
+        temp_arr_4[pos] = temp_arr_2[pos - n1]
+
+        for i in range(1 - n1, 1):
+            temp_arr_3[pos] = temp_arr_1[pos + i] * k1 + temp_arr_3[pos] * (1.0 - k1)
+            temp_arr_4[pos] = temp_arr_2[pos + i] * k1 + temp_arr_4[pos] * (1.0 - k1)
+
+        cuda.syncthreads()
+
+        temp_arr_1[pos] = temp_arr_3[pos - n2]
+        temp_arr_2[pos] = temp_arr_4[pos - n2]
+
+        for i in range(1 - n2, 1):
+            temp_arr_1[pos] = temp_arr_3[pos + i] * k2 + temp_arr_1[pos] * (1.0 - k1)
+            temp_arr_2[pos] = temp_arr_4[pos + i] * k2 + temp_arr_2[pos] * (1.0 - k1)
+
+        out[pos, res_index] = 100.0 * temp_arr_3[pos] / temp_arr_4[pos]
+
+
+##################################
+# Accumulation Distribution Index
+##################################
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:])')
+def accumulation_distribution_kernel(ohlcv, temp_arr, out):
+    """
+    Calculate Accumulation/Distribution for given data.
+    https://en.wikipedia.org/wiki/Accumulation/distribution_index
 
     :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
-    :param window: array of window sizes
-    :param temp_arr_1: link to GPU memory with temporary array for calculations
-    :param temp_arr_2: link to GPU memory with temporary array for calculations
-    :param out: link to GPU memory for result
-    :param res_index: column index in result array
-    :param blocks_per_grid: CUDA blocks per grid
-    :param threads_per_block: CUDA threads per block
+    :param temp_arr: temporary array
+    :param out: result
     """
-    for i, window_i in enumerate(windows):
-        relative_strength_index_kernel_n[blocks_per_grid, threads_per_block](ohlcv, window_i, temp_arr_1, temp_arr_2, out, res_index + i)
+    pos = cuda.grid(1)
+    
+    if pos < ohlcv.shape[0]:
+        if pos == 0:
+            temp_arr[pos] = 0.0
+        else:
+            temp_arr[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        res = 0.0
+        for i in range(pos + 1):
+            res += temp_arr[i]
+
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:,:], int64)')
+def accumulation_distribution_kernel_n(ohlcv, temp_arr, out, res_index):
+    """
+    Calculate Accumulation/Distribution for given data.
+    https://en.wikipedia.org/wiki/Accumulation/distribution_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param temp_arr: temporary array
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    
+    if pos < ohlcv.shape[0]:
+        if pos == 0:
+            temp_arr[pos] = 0.0
+        else:
+            temp_arr[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        res = 0.0
+        for i in range(pos + 1):
+            res += temp_arr[i]
+        
+        out[pos, res_index] = res
+
+
+##################################
+# Chaikin Oscillator
+##################################
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:], float64[:], float64[:])')
+def chaikin_oscillator_kernel(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out):
+    """
+    Calculate Chaikin Oscillator for given data.
+    https://en.wikipedia.org/wiki/Chaikin_Analytics
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param temp_arr_3: temporary array
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    n1 = min(3, pos)
+    n2 = min(10, pos)
+    k1 = 2.0 / (n1 + 1.0)
+    k2 = 2.0 / (n2 + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        temp_arr_2[pos] = temp_arr_1[pos - n1]
+        for i in range(1 - n1, 1):
+            temp_arr_2[pos] = temp_arr_1[pos + i] * k1 + temp_arr_2[pos] * (1.0 - k1)
+
+        temp_arr_3[pos] = temp_arr_1[pos - n2]
+        for i in range(1 - n2, 1):
+            temp_arr_3[pos] = temp_arr_1[pos + i] * k2 + temp_arr_3[pos] * (1.0 - k2)
+
+        out[pos] = temp_arr_2[pos] - temp_arr_3[pos]
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:], float64[:], float64[:,:], int64)')
+def chaikin_oscillator_kernel_n(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out, res_index):
+    """
+    Calculate Chaikin Oscillator for given data.
+    https://en.wikipedia.org/wiki/Chaikin_Analytics
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param temp_arr_3: temporary array
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n1 = min(3, pos)
+    n2 = min(10, pos)
+    k1 = 2.0 / (n1 + 1.0)
+    k2 = 2.0 / (n2 + 1.0)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        temp_arr_2[pos] = temp_arr_1[pos - n1]
+        for i in range(1 - n1, 1):
+            temp_arr_2[pos] = temp_arr_1[pos + i] * k1 + temp_arr_2[pos] * (1.0 - k1)
+
+        temp_arr_3[pos] = temp_arr_1[pos - n2]
+        for i in range(1 - n2, 1):
+            temp_arr_3[pos] = temp_arr_1[pos + i] * k2 + temp_arr_3[pos] * (1.0 - k2)
+
+        out[pos, res_index] = temp_arr_2[pos] - temp_arr_3[pos]

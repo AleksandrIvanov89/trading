@@ -5,94 +5,69 @@
     "technical indicators": [
         {
             "function": "moving_average",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "exponential_moving_average",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "momentum",
-            "windows_n": 1,
-            "windows": [1, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [1, 24]
         },
         {
             "function": "rate_of_change",
-            "windows_n": 1,
-            "windows": [1, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [1, 24]
         },
         {
             "function": "average_true_range",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 1,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "stochastic_oscillator_k",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "stochastic_oscillator_d_ma",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 1,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "stochastic_oscillator_d_ema",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 1,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "trix",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 2,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "mass_index",
-            "windows_n": 0,
             "windows": [],
-            "temp_arr": 2,
-            "params": [24]
+            "param": 24
         },
         {
             "function": "vortex_indicator_plus",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "vortex_indicator_minus",
-            "windows_n": 1,
-            "windows": [12, 24],
-            "temp_arr": 0,
-            "params": []
+            "windows": [12, 24]
         },
         {
             "function": "relative_strength_index",
-            "windows_n": 1,
+            "windows": [12, 24]
+        },
+        {
+            "function": "true_strength_index",
             "windows": [12, 24],
-            "temp_arr": 2,
-            "params": []
+            "windows_2": [6, 12]
+        },
+        {
+            "function": "accumulation_distribution",
+            "windows": []
+        },
+        {
+            "function": "chaikin_oscillator",
+            "windows": []
         }
         
     ]
