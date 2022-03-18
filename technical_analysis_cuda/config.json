@@ -68,6 +68,10 @@
         {
             "function": "chaikin_oscillator",
             "windows": []
+        },
+        {
+            "function": "chaikin_money_flow",
+            "windows": []
         }
         
     ]

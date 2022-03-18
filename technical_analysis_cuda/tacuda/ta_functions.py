@@ -305,3 +305,20 @@ def chaikin_oscillator(tacuda, json_data, res_index):
         tacuda.result_gpu_mem,
         res_index
         )
+
+
+def chaikin_money_flow(tacuda, json_data, res_index):
+    """
+    Calculate Money Flow for given data.
+    https://en.wikipedia.org/wiki/Chaikin_Analytics
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    chaikin_money_flow_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+        tacuda.ohlcv,
+        tacuda.temp_arr[0],
+        tacuda.result_gpu_mem,
+        res_index
+        )

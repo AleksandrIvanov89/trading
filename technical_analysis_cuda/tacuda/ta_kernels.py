@@ -1040,7 +1040,7 @@ def chaikin_oscillator_kernel(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out):
     Calculate Chaikin Oscillator for given data.
     https://en.wikipedia.org/wiki/Chaikin_Analytics
 
-    :param ohlcv: Open, High, Low, Close, Volume
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
@@ -1073,8 +1073,8 @@ def chaikin_oscillator_kernel_n(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out, 
     """
     Calculate Chaikin Oscillator for given data.
     https://en.wikipedia.org/wiki/Chaikin_Analytics
-
-    :param ohlcv: Open, High, Low, Close, Volume
+    * Try to add windows for different periods and find optimal params
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
@@ -1101,3 +1101,71 @@ def chaikin_oscillator_kernel_n(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out, 
             temp_arr_3[pos] = temp_arr_1[pos + i] * k2 + temp_arr_3[pos] * (1.0 - k2)
 
         out[pos, res_index] = temp_arr_2[pos] - temp_arr_3[pos]
+
+
+##################################
+# Chaikin Money Flow
+##################################
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:])')
+def chaikin_money_flow_kernel(ohlcv, temp_arr, out):
+    """
+    Calculate Chaikin Money Flow for given data.
+    https://en.wikipedia.org/wiki/Chaikin_Analytics
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    
+    if pos < ohlcv.shape[0]:
+        temp_arr[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        clv = 0.0
+        v = 0.0
+
+        if pos > 20:
+            for i in range(20):
+                clv += temp_arr[pos - i]
+                v += ohlcv[pos - i, OHLCV_VOLUME]
+
+        if v != 0.0:
+            out[pos] = clv / v
+        else:
+            out[pos] = 0.0
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:,:], int64)')
+def chaikin_money_flow_kernel_n(ohlcv, temp_arr, out, res_index):
+    """
+    Calculate Chaikin Money Flow for given data.
+    https://en.wikipedia.org/wiki/Chaikin_Analytics
+    * Try to add windows for different periods and find optimal params
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    
+    if pos < ohlcv.shape[0]:
+        temp_arr[pos] = (2.0 * ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        clv = 0.0
+        v = 0.0
+
+        if pos > 20:
+            for i in range(20):
+                clv += temp_arr[pos - i]
+                v += ohlcv[pos - i, OHLCV_VOLUME]
+
+        if v != 0.0:
+            out[pos, res_index] = clv / v
+        else:
+            out[pos, res_index] = 0.0
