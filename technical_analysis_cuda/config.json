@@ -72,6 +72,18 @@
         {
             "function": "chaikin_money_flow",
             "windows": []
+        },
+        {
+            "function": "money_flow_index",
+            "windows": [12, 24]
+        },
+        {
+            "function": "on_balance_volume",
+            "windows": []
+        },
+        {
+            "function": "force_index",
+            "windows": [12, 24]
         }
         
     ]

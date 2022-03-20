@@ -679,7 +679,7 @@ def vortex_indicator_plus_kernel(ohlcv, window_size, out):
 
     :param ohlcv: Open, High, Low, Close, Volume
     :param window_size: window size
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     n = min(window_size, pos)
@@ -705,7 +705,7 @@ def vortex_indicator_plus_kernel_n(ohlcv, window_size, out, res_index):
 
     :param ohlcv: Open, High, Low, Close, Volume
     :param window_size: window size
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -732,7 +732,7 @@ def vortex_indicator_minus_kernel(ohlcv, window_size, out):
 
     :param ohlcv: Open, High, Low, Close, Volume
     :param window_size: window size
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     n = min(window_size, pos)
@@ -758,7 +758,7 @@ def vortex_indicator_minus_kernel_n(ohlcv, window_size, out, res_index):
 
     :param ohlcv: Open, High, Low, Close, Volume
     :param window_size: window size
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -792,7 +792,7 @@ def relative_strength_index_kernel(ohlcv, window_size, temp_arr_1, temp_arr_2, o
     :param window: array of window sizes
     :param temp_arr_1: link to GPU memory with temporary array for calculations
     :param temp_arr_2: link to GPU memory with temporary array for calculations
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     temp_arr_1[pos] = 0.0
@@ -836,7 +836,7 @@ def relative_strength_index_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2,
     :param window: array of window sizes
     :param temp_arr_1: link to GPU memory with temporary array for calculations
     :param temp_arr_2: link to GPU memory with temporary array for calculations
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -883,12 +883,12 @@ def true_strength_index_kernel(ohlcv, r, s, temp_arr_1, temp_arr_2, temp_arr_3, 
     https://en.wikipedia.org/wiki/True_strength_index
 
     :param ohlcv: Open, High, Low, Close, Volume
-    :param window_size: window size
+    :param window: array of window sizes
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
     :param temp_arr_4: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     n1 = min(r, pos)
@@ -929,12 +929,12 @@ def true_strength_index_kernel_n(ohlcv, r, s, temp_arr_1, temp_arr_2, temp_arr_3
     https://en.wikipedia.org/wiki/True_strength_index
 
     :param ohlcv: Open, High, Low, Close, Volume
-    :param window_size: window size
+    :param window: array of window sizes
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
     :param temp_arr_4: temporary array
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -982,7 +982,7 @@ def accumulation_distribution_kernel(ohlcv, temp_arr, out):
 
     :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     
@@ -1009,7 +1009,7 @@ def accumulation_distribution_kernel_n(ohlcv, temp_arr, out, res_index):
 
     :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr: temporary array
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -1044,7 +1044,7 @@ def chaikin_oscillator_kernel(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out):
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     n1 = min(3, pos)
@@ -1078,7 +1078,7 @@ def chaikin_oscillator_kernel_n(ohlcv, temp_arr_1, temp_arr_2, temp_arr_3, out, 
     :param temp_arr_1: temporary array
     :param temp_arr_2: temporary array
     :param temp_arr_3: temporary array
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -1116,7 +1116,7 @@ def chaikin_money_flow_kernel(ohlcv, temp_arr, out):
 
     :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr_1: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     
@@ -1148,7 +1148,7 @@ def chaikin_money_flow_kernel_n(ohlcv, temp_arr, out, res_index):
 
     :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
     :param temp_arr_1: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     
@@ -1169,3 +1169,198 @@ def chaikin_money_flow_kernel_n(ohlcv, temp_arr, out, res_index):
             out[pos, res_index] = clv / v
         else:
             out[pos, res_index] = 0.0
+
+
+##################################
+# Money Flow Index
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:])')
+def money_flow_index_kernel(ohlcv, window_size, temp_arr_1, temp_arr_2, out):
+    """
+    Calculate Money Flow Index and Ratio for given data.
+    https://en.wikipedia.org/wiki/Money_flow_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        typical_price = ohlcv[pos, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] + ohlcv[pos, OHLCV_CLOSE]
+        if typical_price > ohlcv[pos - 1, OHLCV_HIGH] + ohlcv[pos - 1, OHLCV_LOW] + ohlcv[pos - 1, OHLCV_CLOSE]:
+            temp_arr_1[pos] = typical_price * ohlcv[pos, OHLCV_VOLUME] / 3.0
+            temp_arr_2[pos] = 0.0
+        else:
+            temp_arr_1[pos] = 0.0
+            temp_arr_2[pos] = typical_price * ohlcv[pos, OHLCV_VOLUME] / 3.0
+
+        cuda.syncthreads()
+
+        temp_1 = 0.0
+        temp_2 = 0.0
+        for i in range(0, n):
+            temp_1 += temp_arr_1[pos - i]
+            temp_2 += temp_arr_2[pos - i]
+
+        if (temp_2 != 0.0) and (temp_1 != -1.0 * temp_2):
+            out[pos] = 100.0 - 100.0 / (1.0 + temp_1 / temp_2)
+        else:
+            out[pos] = 0.0
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:], float64[:,:], int64)')
+def money_flow_index_kernel_n(ohlcv, window_size, temp_arr_1, temp_arr_2, out, res_index):
+    """
+    Calculate Money Flow Index and Ratio for given data.
+    https://en.wikipedia.org/wiki/Money_flow_index
+    
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        typical_price = ohlcv[pos, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] + ohlcv[pos, OHLCV_CLOSE]
+        if typical_price > ohlcv[pos - 1, OHLCV_HIGH] + ohlcv[pos - 1, OHLCV_LOW] + ohlcv[pos - 1, OHLCV_CLOSE]:
+            temp_arr_1[pos] = typical_price * ohlcv[pos, OHLCV_VOLUME] / 3.0
+            temp_arr_2[pos] = 0.0
+        else:
+            temp_arr_1[pos] = 0.0
+            temp_arr_2[pos] = typical_price * ohlcv[pos, OHLCV_VOLUME] / 3.0
+
+        cuda.syncthreads()
+
+        temp_1 = 0.0
+        temp_2 = 0.0
+        for i in range(0, n):
+            temp_1 += temp_arr_1[pos - i]
+            temp_2 += temp_arr_2[pos - i]
+        
+        if (temp_2 != 0.0) and (temp_1 != -1.0 * temp_2):
+            out[pos, res_index] = 100.0 - 100.0 / (1.0 + temp_1 / temp_2)
+        else:
+            out[pos, res_index] = 0.0
+
+
+##################################
+# On Balance Volume
+##################################
+
+
+@cuda.jit('void(float64[:,:], float64[:])')
+def on_balance_volume_kernel(ohlcv, out):
+    """
+    Calculate On-Balance Volume for given data.
+    https://en.wikipedia.org/wiki/On-balance_volume
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    
+    if (pos < ohlcv.shape[0]) and (pos > 0):
+        res = 0.0
+
+        for i in range(1, pos):
+            temp_1 = ohlcv[i, OHLCV_CLOSE] - ohlcv[i - 1, OHLCV_CLOSE]
+            if temp_1 != 0.0:
+                res += ohlcv[i, OHLCV_VOLUME] * temp_1 / abs(temp_1)
+        
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], float64[:,:], int64)')
+def on_balance_volume_kernel_n(ohlcv, out, res_index):
+    """
+    Calculate On-Balance Volume for given data.
+    https://en.wikipedia.org/wiki/On-balance_volume
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+
+    if (pos < ohlcv.shape[0]) and (pos > 0):
+        res = 0.0
+
+        for i in range(1, pos):
+            temp_1 = ohlcv[i, OHLCV_CLOSE] - ohlcv[i - 1, OHLCV_CLOSE]
+            if temp_1 != 0.0:
+                res += ohlcv[i, OHLCV_VOLUME] * temp_1 / abs(temp_1)
+        
+        out[pos, res_index] = res
+
+
+
+##################################
+# Force Index
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:])')
+def force_index_kernel(ohlcv, window_size, temp_arr, out):
+    """
+    Calculate Force Index for given data.
+    https://en.wikipedia.org/wiki/Force_index
+
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr: temporary array
+    :param out: result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        temp_arr[pos] = (ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        res = temp_arr[pos - n]
+
+        for i in range(1 - n, 1):
+            res = temp_arr[pos + i] * k + res * (1.0 - k)
+    
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:,:], int64)')
+def force_index_kernel_n(ohlcv, window_size, temp_arr, out, res_index):
+    """
+    Calculate Force Index for given data.
+    https://en.wikipedia.org/wiki/Force_index
+    
+    :param ohlcv: Open, High, Low, Close, Volume
+    :param window_size: window size
+    :param temp_arr: temporary array
+    :param out: result array
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+
+    if 0 < pos < ohlcv.shape[0]:
+        temp_arr[pos] = (ohlcv[pos, OHLCV_CLOSE] - ohlcv[pos - 1, OHLCV_CLOSE]) * ohlcv[pos, OHLCV_VOLUME]
+
+        cuda.syncthreads()
+
+        res = temp_arr[pos - n]
+
+        for i in range(1 - n, 1):
+            res = temp_arr[pos + i] * k + res * (1.0 - k)
+    
+        out[pos, res_index] = res

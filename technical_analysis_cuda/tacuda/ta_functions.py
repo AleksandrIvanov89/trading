@@ -322,3 +322,57 @@ def chaikin_money_flow(tacuda, json_data, res_index):
         tacuda.result_gpu_mem,
         res_index
         )
+
+
+def money_flow_index(tacuda, json_data, res_index):
+    """
+    Calculate Money Flow Index and Ratio for given data.
+    https://en.wikipedia.org/wiki/Money_flow_index
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        money_flow_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.temp_arr[0],
+            tacuda.temp_arr[1],
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+def on_balance_volume(tacuda, json_data, res_index):
+    """
+    Calculate On-Balance Volume for given data.
+    https://en.wikipedia.org/wiki/On-balance_volume
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    on_balance_volume_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+        tacuda.ohlcv,
+        tacuda.result_gpu_mem,
+        res_index
+        )
+
+
+def force_index(tacuda, json_data, res_index):
+    """
+    Calculate Force Index for given data.
+    https://en.wikipedia.org/wiki/Force_index
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        force_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.temp_arr[0],
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
