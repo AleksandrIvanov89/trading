@@ -25,7 +25,7 @@ def main():
         symbol = json_data.get("symbol") # format - BTC/USDT
         period = json_data.get("period") # format - 1m, 1d,...
 
-        print(json_data["technical indicators"][0]["function"])
+        #print(json_data["technical indicators"][0]["function"])
 
         res = mongo_db["ohlcv"][exchange_name][symbol][period].find().sort([("timestamp", pymongo.ASCENDING)])
         res_df = pd.DataFrame(list(res))
@@ -35,6 +35,8 @@ def main():
         print(timeline)
 
         ta_cuda = TACUDA(timeline, json_data)
+        ta_cuda.cuda_device_info()
+        
         ta_cuda.process()
         
         res_row = np.array(ta_cuda.result_gpu_mem.copy_to_host())

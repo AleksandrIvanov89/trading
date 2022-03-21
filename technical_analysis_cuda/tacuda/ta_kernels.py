@@ -1303,7 +1303,6 @@ def on_balance_volume_kernel_n(ohlcv, out, res_index):
         out[pos, res_index] = res
 
 
-
 ##################################
 # Force Index
 ##################################
@@ -1315,10 +1314,10 @@ def force_index_kernel(ohlcv, window_size, temp_arr, out):
     Calculate Force Index for given data.
     https://en.wikipedia.org/wiki/Force_index
 
-    :param ohlcv: Open, High, Low, Close, Volume
-    :param window_size: window size
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
     :param temp_arr: temporary array
-    :param out: result
+    :param out: link to GPU memory for result
     """
     pos = cuda.grid(1)
     n = min(window_size, pos)
@@ -1343,10 +1342,10 @@ def force_index_kernel_n(ohlcv, window_size, temp_arr, out, res_index):
     Calculate Force Index for given data.
     https://en.wikipedia.org/wiki/Force_index
     
-    :param ohlcv: Open, High, Low, Close, Volume
-    :param window_size: window size
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
     :param temp_arr: temporary array
-    :param out: result array
+    :param out: link to GPU memory for result
     :param res_index: column index in result array
     """
     pos = cuda.grid(1)
@@ -1364,3 +1363,756 @@ def force_index_kernel_n(ohlcv, window_size, temp_arr, out, res_index):
             res = temp_arr[pos + i] * k + res * (1.0 - k)
     
         out[pos, res_index] = res
+
+
+##################################
+# Ease of Movement
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:])')
+def ease_of_movement_kernel(ohlcv, window_size, temp_arr, out):
+    """
+    Calculate Ease of Movement for given data.
+    https://en.wikipedia.org/wiki/Ease_of_movement
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr: temporary array
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        temp_arr[pos] = (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] - ohlcv[pos - 1, OHLCV_LOW]) * (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (2.0 * ohlcv[pos, OHLCV_VOLUME])
+
+        cuda.syncthreads()
+
+        res = 0.0
+        for i in range(1 - n, 1):
+            res += temp_arr[pos + i]
+        
+        out[pos] = res / n
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:,:], int64)')
+def ease_of_movement_kernel_n(ohlcv, window_size, temp_arr, out, res_index):
+    """
+    Calculate Ease of Movement for given data.
+    https://en.wikipedia.org/wiki/Ease_of_movement
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr: temporary array
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        temp_arr[pos] = (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] - ohlcv[pos - 1, OHLCV_LOW]) * (ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]) / (2.0 * ohlcv[pos, OHLCV_VOLUME])
+
+        cuda.syncthreads()
+
+        res = 0.0
+        for i in range(1 - n, 1):
+            res += temp_arr[pos + i]
+        
+        out[pos, res_index] = res / n
+
+
+##################################
+# Standart Deviation
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def standard_deviation_kernel(ohlcv, window_size, out):
+    """
+    Calculate Standard Deviation for given data.
+    https://en.wikipedia.org/wiki/Standard_deviation
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        out[pos] = math.sqrt(res / n)
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def standard_deviation_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Standard Deviation for given data.
+    https://en.wikipedia.org/wiki/Standard_deviation
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        out[pos, res_index] = math.sqrt(res / n)
+
+
+##################################
+# Commodity Channel
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:])')
+def commodity_channel_index_kernel(ohlcv, window_size, temp_arr_1, out):
+    """
+    Calculate Commodity Channel Index for given data.
+    https://en.wikipedia.org/wiki/Commodity_channel_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = (ohlcv[pos, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] + ohlcv[pos, OHLCV_CLOSE]) / 3.0
+
+        cuda.syncthreads()
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += temp_arr_1[pos - i]
+        temp_1 /= n
+
+        cuda.syncthreads()
+
+        md = 0.0
+        for i in range(0, n):
+            md += temp_arr_1[pos - i] - temp_1
+        md /= n
+        
+        if md != 0.0:
+            out[pos] = (temp_arr_1[pos] - temp_1) / (md * 0.015)
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:], float64[:,:], int64)')
+def commodity_channel_index_kernel_n(ohlcv, window_size, temp_arr_1, out, res_index):
+    """
+    Calculate Commodity Channel Index for given data.
+    https://en.wikipedia.org/wiki/Commodity_channel_index
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param temp_arr_1: temporary array
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if pos < ohlcv.shape[0]:
+        temp_arr_1[pos] = (ohlcv[pos, OHLCV_HIGH] + ohlcv[pos, OHLCV_LOW] + ohlcv[pos, OHLCV_CLOSE]) / 3.0
+
+        cuda.syncthreads()
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += temp_arr_1[pos - i]
+        temp_1 /= n
+
+        cuda.syncthreads()
+
+        md = 0.0
+        for i in range(0, n):
+            md += temp_arr_1[pos - i] - temp_1
+        md /= n
+        
+        if md != 0.0:
+            out[pos, res_index] = (temp_arr_1[pos] - temp_1) / (md * 0.015)
+
+
+##################################
+# Keltner Channel
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def keltner_channel_m_index_kernel(ohlcv, window_size, out):
+    """
+    Calculate Keltner Channel Middle for given data.
+    https://www.investopedia.com/terms/k/keltnerchannel.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+    
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def keltner_channel_m_index_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Keltner Channel Middle for given data.
+    https://www.investopedia.com/terms/k/keltnerchannel.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+    
+        out[pos, res_index] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def keltner_channel_u_index_kernel(ohlcv, window_size, out):
+    """
+    Calculate Keltner Channel Up for given data.
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+        
+        if pos > 0:
+            atr = max(ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW], ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_CLOSE], ohlcv[pos - 1, OHLCV_CLOSE] - ohlcv[pos, OHLCV_LOW])
+        else:
+            atr = ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]
+    
+        out[pos] = res + 2.0 * atr
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def keltner_channel_u_index_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Keltner Channel Up for given data.
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+        
+        if pos > 0:
+            atr = max(ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW], ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_CLOSE], ohlcv[pos - 1, OHLCV_CLOSE] - ohlcv[pos, OHLCV_LOW])
+        else:
+            atr = ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]
+    
+        out[pos, res_index] = res + 2.0 * atr
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def keltner_channel_d_index_kernel(ohlcv, window_size, out):
+    """
+    Calculate Keltner Channel Down for given data.
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+        
+        if pos > 0:
+            atr = max(ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW], ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_CLOSE], ohlcv[pos - 1, OHLCV_CLOSE] - ohlcv[pos, OHLCV_LOW])
+        else:
+            atr = ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]
+    
+        out[pos] = res + 2.0 - atr
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def keltner_channel_d_index_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Keltner Channel Down for given data.
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    k = 2.0 / (n + 1.0)
+    res = 0.0
+
+    if pos < ohlcv.shape[0]:
+        res = ohlcv[pos - n, OHLCV_CLOSE]
+
+        for i in range(1 - n, 1):
+            res = ohlcv[pos + i, OHLCV_CLOSE] * k + res * (1.0 - k)
+        
+        if pos > 0:
+            atr = max(ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW], ohlcv[pos, OHLCV_HIGH] - ohlcv[pos - 1, OHLCV_CLOSE], ohlcv[pos - 1, OHLCV_CLOSE] - ohlcv[pos, OHLCV_LOW])
+        else:
+            atr = ohlcv[pos, OHLCV_HIGH] - ohlcv[pos, OHLCV_LOW]
+    
+        out[pos, res_index] = res - 2.0 * atr
+
+
+##################################
+# Ultimate Oscillator
+##################################
+
+
+@cuda.jit('void(float64[:,:], float64[:], float64[:], float64[:])')
+def ultimate_oscillator_kernel(ohlcv, temp_arr_1, temp_arr_2, out):
+    """
+    Calculate Ultimate Oscillator for given data.
+    https://en.wikipedia.org/wiki/Ultimate_oscillator
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+
+    if 0 < pos < ohlcv.shape[0]:
+        out[pos] = 0.0
+        temp_arr_1[pos] = max(ohlcv[pos, OHLCV_HIGH], ohlcv[pos - 1, OHLCV_CLOSE]) - min(ohlcv[pos, OHLCV_LOW], ohlcv[pos - 1, OHLCV_CLOSE]) #TR
+        temp_arr_2[pos] = ohlcv[pos, OHLCV_CLOSE] - min(ohlcv[pos, OHLCV_LOW], ohlcv[pos - 1, OHLCV_CLOSE]) # BP
+
+    cuda.syncthreads()
+
+    if 28 <= pos < ohlcv.shape[0]:
+        bp_7 = 0.0
+        tr_7 = 0.0
+        
+        for i in range(0, 7):
+            bp_7 += temp_arr_2[pos - i]
+            tr_7 += temp_arr_1[pos - i]
+        
+        bp_14 = bp_7
+        tr_14 = tr_7
+
+        for i in range(7, 14):
+            bp_14 += temp_arr_2[pos - i]
+            tr_14 += temp_arr_1[pos - i]
+
+        bp_28 = bp_14
+        tr_28 = tr_14
+
+        for i in range(14, 28):
+            bp_28 += temp_arr_2[pos - i]
+            tr_28 += temp_arr_1[pos - i]
+        
+        if (tr_7 != 0.0) and (tr_14 != 0.0) and (tr_28 != 0.0):
+            out[pos] = 100.0 * ((bp_7 / tr_7) * 4.0 + (bp_14 / tr_14) * 2.0 + (bp_28 / tr_28)) / 7.0
+
+        
+@cuda.jit('void(float64[:,:], float64[:], float64[:], float64[:,:], int64)')
+def ultimate_oscillator_kernel_n(ohlcv, temp_arr_1, temp_arr_2, out, res_index):
+    """
+    Calculate Ultimate Oscillator for given data.
+    https://en.wikipedia.org/wiki/Ultimate_oscillator
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param temp_arr_1: temporary array
+    :param temp_arr_2: temporary array
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+
+    if 0 < pos < ohlcv.shape[0]:
+        out[pos, res_index] = 0.0
+        temp_arr_1[pos] = max(ohlcv[pos, OHLCV_HIGH], ohlcv[pos - 1, OHLCV_CLOSE]) - min(ohlcv[pos, OHLCV_LOW], ohlcv[pos - 1, OHLCV_CLOSE]) #TR
+        temp_arr_2[pos] = ohlcv[pos, OHLCV_CLOSE] - min(ohlcv[pos, OHLCV_LOW], ohlcv[pos - 1, OHLCV_CLOSE]) # BP
+
+    cuda.syncthreads()
+
+    if 28 <= pos < ohlcv.shape[0]:
+        bp_7 = 0.0
+        tr_7 = 0.0
+        
+        for i in range(0, 7):
+            bp_7 += temp_arr_2[pos - i]
+            tr_7 += temp_arr_1[pos - i]
+        
+        bp_14 = bp_7
+        tr_14 = tr_7
+
+        for i in range(7, 14):
+            bp_14 += temp_arr_2[pos - i]
+            tr_14 += temp_arr_1[pos - i]
+
+        bp_28 = bp_14
+        tr_28 = tr_14
+
+        for i in range(14, 28):
+            bp_28 += temp_arr_2[pos - i]
+            tr_28 += temp_arr_1[pos - i]
+        
+        if (tr_7 != 0.0) and (tr_14 != 0.0) and (tr_28 != 0.0):
+            out[pos, res_index] = 100.0 * ((bp_7 / tr_7) * 4.0 + (bp_14 / tr_14) * 2.0 + (bp_28 / tr_28)) / 7.0
+
+
+##################################
+# Donchian Channel
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def donchian_channel_u_kernel(ohlcv, window_size, out):
+    """
+    Calculate Donchian Channel Up of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res = ohlcv[pos, OHLCV_HIGH]
+        for i in range(1, n):
+            res = max(res, ohlcv[pos - i, OHLCV_HIGH])
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def donchian_channel_u_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Donchian Channel Up of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res = ohlcv[pos, OHLCV_HIGH]
+        for i in range(1, n):
+            res = max(res, ohlcv[pos - i, OHLCV_HIGH])
+        out[pos, res_index] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def donchian_channel_d_kernel(ohlcv, window_size, out):
+    """
+    Calculate Donchian Channel Down of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res = ohlcv[pos, OHLCV_LOW]
+        for i in range(1, n):
+            res = min(res, ohlcv[pos - i, OHLCV_LOW])
+        out[pos] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def donchian_channel_d_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Donchian Channel Down of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res = ohlcv[pos, OHLCV_LOW]
+        for i in range(1, n):
+            res = min(res, ohlcv[pos - i, OHLCV_LOW])
+        out[pos, res_index] = res
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def donchian_channel_m_kernel(ohlcv, window_size, out):
+    """
+    Calculate Donchian Channel Middle of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res_min = ohlcv[pos, OHLCV_LOW]
+        res_max = ohlcv[pos, OHLCV_HIGH]
+        for i in range(1, n):
+            res_min = min(res_min, ohlcv[pos - i, OHLCV_LOW])
+            res_max = max(res_max, ohlcv[pos - i, OHLCV_HIGH])
+        out[pos] = (res_min + res_max) / 2.0
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def donchian_channel_m_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Donchian Channel Middle of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if 0 < pos < ohlcv.shape[0]:
+        res_min = ohlcv[pos, OHLCV_LOW]
+        res_max = ohlcv[pos, OHLCV_HIGH]
+        for i in range(1, n):
+            res_min = min(res_min, ohlcv[pos - i, OHLCV_LOW])
+            res_max = max(res_max, ohlcv[pos - i, OHLCV_HIGH])
+        out[pos, res_index] = (res_min + res_max) / 2.0
+
+
+##################################
+# Bollinger Bands
+##################################
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def bollinger_bands_m_kernel(ohlcv, window_size, out):
+    """
+    Calculate Bollinger bands Middle for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    res = 0.0
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+        for i in range(1 - n, 1):
+            res += ohlcv[pos + i, OHLCV_CLOSE]
+    
+        out[pos] = res / n
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def bollinger_bands_m_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Bollinger bands Middle for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+    res = 0.0
+        
+    if (pos < ohlcv.shape[0]) and (n > 0):
+        for i in range(1 - n, 1):
+            res += ohlcv[pos + i, OHLCV_CLOSE]
+        
+        out[pos, res_index] = res / n
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def bollinger_bands_u_kernel(ohlcv, window_size, out):
+    """
+    Calculate Bollinger bands Up for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        std = math.sqrt(res / n)
+        
+        out[pos] = temp_1 + 2.0 * std
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def bollinger_bands_u_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Bollinger bands Up for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        std = math.sqrt(res / n)
+        
+        out[pos, res_index] = temp_1 + 2.0 * std
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:])')
+def bollinger_bands_d_kernel(ohlcv, window_size, out):
+    """
+    Calculate Bollinger bands Down for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        std = math.sqrt(res / n)
+        
+        out[pos] = temp_1 - 2.0 * std
+
+
+@cuda.jit('void(float64[:,:], int64, float64[:,:], int64)')
+def bollinger_bands_d_kernel_n(ohlcv, window_size, out, res_index):
+    """
+    Calculate Bollinger bands Down for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param ohlcv: link to GPU memory with array of timestamp, Open, High, Low, Close, Volume
+    :param window: array of window sizes
+    :param out: link to GPU memory for result
+    :param res_index: column index in result array
+    """
+    pos = cuda.grid(1)
+    n = min(window_size, pos)
+
+    if (pos < ohlcv.shape[0]) and (n > 0):
+
+        temp_1 = 0.0
+        for i in range(0, n):
+            temp_1 += ohlcv[pos - i, OHLCV_CLOSE]
+        temp_1 /= n
+
+        res = 0.0
+        for i in range(0, n):
+            res += math.pow(ohlcv[pos - i, OHLCV_CLOSE] - temp_1, 2)
+        std = math.sqrt(res / n)
+        
+        out[pos, res_index] = temp_1 - 2.0 * std

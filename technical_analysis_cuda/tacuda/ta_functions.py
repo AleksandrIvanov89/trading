@@ -376,3 +376,239 @@ def force_index(tacuda, json_data, res_index):
             tacuda.result_gpu_mem,
             res_index + i
             )
+
+
+def ease_of_movement(tacuda, json_data, res_index):
+    """
+    Calculate Ease of Movement for given data.
+    https://en.wikipedia.org/wiki/Ease_of_movement
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        ease_of_movement_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.temp_arr[0],
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def standard_deviation(tacuda, json_data, res_index):
+    """
+    Calculate Standard Deviation for given data.
+    https://en.wikipedia.org/wiki/Standard_deviation
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        standard_deviation_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+    
+
+def commodity_channel_index(tacuda, json_data, res_index):
+    """
+    Calculate Commodity Channel Index for given data.
+    https://en.wikipedia.org/wiki/Commodity_channel_index
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        commodity_channel_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.temp_arr[0],
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def keltner_channel_m(tacuda, json_data, res_index):
+    """
+    Calculate Keltner Channel Middle for given data.
+    https://www.investopedia.com/terms/k/keltnerchannel.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        keltner_channel_m_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def keltner_channel_u(tacuda, json_data, res_index):
+    """
+    Calculate Keltner Channel Up for given data.
+    https://www.investopedia.com/terms/k/keltnerchannel.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        keltner_channel_u_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def keltner_channel_d(tacuda, json_data, res_index):
+    """
+    Calculate Keltner Channel Down for given data.
+    https://www.investopedia.com/terms/k/keltnerchannel.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        keltner_channel_d_index_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+def ultimate_oscillator(tacuda, json_data, res_index):
+    """
+    Calculate Ultimate Oscillator for given data.
+    https://en.wikipedia.org/wiki/Ultimate_oscillator
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    
+    ultimate_oscillator_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+        tacuda.ohlcv,
+        tacuda.temp_arr[0],
+        tacuda.temp_arr[1],
+        tacuda.result_gpu_mem,
+        res_index
+        )
+
+
+def donchian_channel_u(tacuda, json_data, res_index):
+    """
+    Calculate Donchian Channel Up of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        donchian_channel_u_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def donchian_channel_d(tacuda, json_data, res_index):
+    """
+    Calculate Donchian Channel Down of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        donchian_channel_d_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def donchian_channel_m(tacuda, json_data, res_index):
+    """
+    Calculate Donchian Channel Middle of given data.
+    https://www.investopedia.com/terms/d/donchianchannels.asp
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        donchian_channel_m_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def bollinger_bands_m(tacuda, json_data, res_index):
+    """
+    Calculate Bollinger bands Middle for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        bollinger_bands_m_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def bollinger_bands_u(tacuda, json_data, res_index):
+    """
+    Calculate Bollinger bands Up for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        bollinger_bands_u_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )
+
+
+def bollinger_bands_d(tacuda, json_data, res_index):
+    """
+    Calculate Bollinger bands Down for the given data.
+    https://www.tradingview.com/support/solutions/43000501840-bollinger-bands-bb/
+
+    :param tacuda: TACUDA
+    :param json_data: function from config file
+    :param res_index: column index in result array
+    """
+    for i, window_i in enumerate(json_data["windows"]):
+        bollinger_bands_d_kernel_n[tacuda.blocks_per_grid, tacuda.threads_per_block](
+            tacuda.ohlcv,
+            window_i,
+            tacuda.result_gpu_mem,
+            res_index + i
+            )

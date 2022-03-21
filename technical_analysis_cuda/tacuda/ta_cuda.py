@@ -65,6 +65,6 @@ class TACUDA:
                 "res_index": res_index
             }
             globals()[ta_function](**ta_params)
-            res_index += len(function_i["windows"]) if len(function_i["windows"]) > 0 else 1
+            res_index += max(1, len(function_i["windows"]))
 
         

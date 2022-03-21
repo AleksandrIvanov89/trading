@@ -84,6 +84,58 @@
         {
             "function": "force_index",
             "windows": [12, 24]
+        },
+        {
+            "function": "ease_of_movement",
+            "windows": [12, 24]
+        },
+        {
+            "function": "standard_deviation",
+            "windows": [12, 24]
+        },
+        {
+            "function": "commodity_channel_index",
+            "windows": [12, 24]
+        },
+        {
+            "function": "keltner_channel_m",
+            "windows": [12, 24]
+        },
+        {
+            "function": "keltner_channel_u",
+            "windows": [12, 24]
+        },
+        {
+            "function": "keltner_channel_d",
+            "windows": [12, 24]
+        },
+        {
+            "function": "ultimate_oscillator",
+            "windows": []
+        },
+        {
+            "function": "donchian_channel_u",
+            "windows": [12, 24]
+        },
+        {
+            "function": "donchian_channel_d",
+            "windows": [12, 24]
+        },
+        {
+            "function": "donchian_channel_m",
+            "windows": [12, 24]
+        },
+        {
+            "function": "bollinger_bands_m",
+            "windows": [12, 24]
+        },
+        {
+            "function": "bollinger_bands_u",
+            "windows": [12, 24]
+        },
+        {
+            "function": "bollinger_bands_d",
+            "windows": [12, 24]
         }
         
     ]
