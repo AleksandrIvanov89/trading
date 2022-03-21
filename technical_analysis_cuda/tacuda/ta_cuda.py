@@ -57,6 +57,7 @@ class TACUDA:
     
     def process(self):
         res_index = 0
+        names = []
         for i, function_i in enumerate(self.json_data["technical indicators"]):
             ta_function = function_i["function"]
             ta_params = {
@@ -64,7 +65,8 @@ class TACUDA:
                 "json_data": function_i,
                 "res_index": res_index
             }
-            globals()[ta_function](**ta_params)
+            names += globals()[ta_function](**ta_params)
             res_index += max(1, len(function_i["windows"]))
+        return names
 
         

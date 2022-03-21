@@ -1,11 +1,9 @@
-import math
 import os
 import json
-from numba import cuda, float32, int32, jit
-import pandas as pd
+"""from numba import cuda, float32, int32, jit"""
 import numpy as np
+import pandas as pd
 import pymongo
-#from include.ta_cuda import *
 from tacuda import *
 
 np.set_printoptions(suppress=True)
@@ -27,24 +25,29 @@ def main():
 
         #print(json_data["technical indicators"][0]["function"])
 
-        res = mongo_db["ohlcv"][exchange_name][symbol][period].find().sort([("timestamp", pymongo.ASCENDING)])
+        res = mongo_db[exchange_name][symbol][period]["ohlcv"].find().sort([("timestamp", pymongo.ASCENDING)])
         res_df = pd.DataFrame(list(res))
         timeline = res_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].to_numpy()
-    
 
         print(timeline)
 
         ta_cuda = TACUDA(timeline, json_data)
         ta_cuda.cuda_device_info()
         
-        ta_cuda.process()
+        names = ta_cuda.process()
         
         res_row = np.array(ta_cuda.result_gpu_mem.copy_to_host())
-        close_row = res_df[['close']].to_numpy()
-
-        print(close_row[-10:-1])
         
-        print(res_row)
+        ts = res_df[['timestamp']].to_numpy()
+        
+        res = np.concatenate((ts, res_row), axis=1)
+
+        print(res)
+        
+        for i in range(1, res.shape[1]):
+            tss = [{"timestamp": res[j, 0], "data": res[j, i]} for j in range(res.shape[0])]
+            mongo_db[exchange_name][symbol][period][names[i - 1]].insert_many(tss)
+
 
 if __name__ == '__main__':
     main()
