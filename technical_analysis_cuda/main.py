@@ -31,7 +31,7 @@ def main():
 
         print(timeline)
 
-        ta_cuda = TACUDA(timeline, json_data)
+        ta_cuda = TACUDA(timeline, json_data, 256)
         ta_cuda.cuda_device_info()
         
         names = ta_cuda.process()

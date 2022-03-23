@@ -7,17 +7,22 @@ networks:
         config:
           - subnet: 172.16.57.0/24
 services:
-  ohlcv-collector:
+  cross_opt:
     build:
       context: .
-    image: ohlcv-collector:$VERSION
-    container_name: ohlcv-collector
+    image: cross_opt:$VERSION
+    container_name: cross_opt
+    runtime: nvidia
     networks:
       - mongodb-network
     ports:
-      - "8051:8051"
+      - "8010:8010"
+    volumes: 
+      - /home/axel/Documents/Projects/trading/trading/strategies/cross/optimization/result/:/result/
     environment:
+      - NVIDIA_VISIBLE_DEVICES=0
       - TARGET=$TARGET
       - MONGO_USERNAME=$MONGO_USERNAME
       - MONGO_PASSWORD=$MONGO_PASSWORD
+      - NUMBA_CUDA_DRIVER=/usr/lib/x86_64-linux-gnu/libcuda.so
     restart: unless-stopped
