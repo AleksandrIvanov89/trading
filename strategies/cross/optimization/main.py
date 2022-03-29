@@ -15,6 +15,16 @@ OHLCV_LOW = 3
 OHLCV_CLOSE = 4
 OHLCV_VOLUME = 5
 
+MAX_WINDOW_SIZE = 200 * 24 * 60
+STEP = 24 * 60
+
+mongo_username = os.environ.get("MONGO_USERNAME")
+mongo_password = os.environ.get("MONGO_PASSWORD")
+
+mongo_client = pymongo.MongoClient(
+    "mongodb://" + str(mongo_username) + ":" + str(mongo_password) + "@mongodb:27017")
+mongo_db = mongo_client["trading"]
+
 def cuda_blocks_per_grid(length, threads_per_block):
     return math.ceil(length / threads_per_block)
 
@@ -45,20 +55,20 @@ def moving_average_kernel_2d(ohlcv, window_size, out):
         out[thread_x, thread_y] = res / n
 
 
-@cuda.jit('void(float64[:,:], float64[:,:], int64[:,:], float64[:], float64[:], float64[:])')
-def cross_sim(ohlcv, ma, algo_params, result, min_result, max_result):
+@cuda.jit('void(float64[:,:], float64[:,:], int64[:,:], float64[:,:])')
+def cross_sim(ohlcv, ma, algo_params, result):
     # params initialization
     pos = cuda.grid(1)
-    balancs_btc = 1.0
+    balance_btc = 1.0
     balance_usdt = 0.0
-    base_t = 288000
+    base_t = MAX_WINDOW_SIZE
     mod_n = 3
-    start_balance = balancs_btc * ohlcv[base_t, OHLCV_CLOSE] + balance_usdt
-
-    min_res = 1000000.0
-    max_res = 0.0
+    prev_t = base_t
     
     if pos < algo_params.shape[0]:
+        result[pos, 0] = balance_btc * ohlcv[base_t, OHLCV_CLOSE] + balance_usdt
+        res_t = 1
+
         window_short = algo_params[pos, 0]
         window_long = algo_params[pos, 1]
 
@@ -83,37 +93,26 @@ def cross_sim(ohlcv, ma, algo_params, result, min_result, max_result):
             
             if (prev_cross_temp > 0) and (cross_temp < 0):
                 # sell
-                balance_usdt = balancs_btc * ohlcv[t + 1, OHLCV_OPEN] * (1.0 - 0.002)
-                balancs_btc = 0.0
+                if balance_btc > 0.0:
+                    balance_usdt = balance_btc * ohlcv[t + 1, OHLCV_OPEN] * (1.0 - 0.002)
+                    balance_btc = 0.0
                 
             if (prev_cross_temp < 0) and (cross_temp > 0):
                 # buy
-                balancs_btc = balance_usdt / ohlcv[t + 1, OHLCV_OPEN] * (1.0 - 0.002)
-                balance_usdt = 0.0
+                if balance_usdt > 0.0:
+                    balance_btc = balance_usdt / ohlcv[t + 1, OHLCV_OPEN] * (1.0 - 0.002)
+                    balance_usdt = 0.0
 
             prev_cross_temp = cross_temp
 
-            # calc balances
-            temp_balance = balancs_btc * ohlcv[t, OHLCV_CLOSE] + balance_usdt
-            min_res = min(temp_balance / start_balance, min_res)
-            max_res = max(temp_balance / start_balance, max_res)
-        
-        # prepare and save results
-        end_balance = balancs_btc * ohlcv[ohlcv.shape[0] - 1, OHLCV_CLOSE] + balance_usdt
-        result[pos] = end_balance / start_balance
-        min_result[pos] = min_res
-        max_result[pos] = max_res
-                
-
+            if t - prev_t == STEP:
+                result[pos, res_t] = balance_btc * ohlcv[t, OHLCV_CLOSE] + balance_usdt
+                res_t += 1
+                prev_t = t
 
 
 def load_timeseries():
-    mongo_username = os.environ.get("MONGO_USERNAME")
-    mongo_password = os.environ.get("MONGO_PASSWORD")
-
-    mongo_client = pymongo.MongoClient(
-        "mongodb://" + str(mongo_username) + ":" + str(mongo_password) + "@mongodb:27017")
-    mongo_db = mongo_client["trading"]
+    
     with open('config.json') as json_file:
         json_data = json.load(json_file)
         exchange_name = json_data.get("exchange") # name from ccxt library
@@ -128,11 +127,9 @@ def load_timeseries():
 
 
 def main():
-    #start_window = 2
-    #end_window = 1000
-    #windows = np.linspace(start_window, end_window, end_window - start_window + 1, endpoint=True, dtype=np.int64)
+    
     window_short = np.array([5, 10, 15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 300, 330, 360, 390, 420, 480, 540, 600, 720, 980], dtype=np.int64)
-    windows_long = np.linspace(60 * 24, 200 * 60 * 24, 200, endpoint=True, dtype=np.int64)
+    windows_long = np.linspace(STEP, MAX_WINDOW_SIZE, 200, endpoint=True, dtype=np.int64)
     windows = np.concatenate((window_short, windows_long), axis=0)
     params = []
     for i in range(windows.shape[0]):
@@ -145,49 +142,38 @@ def main():
     ts = load_timeseries()
     timeseries = ts[ts[:, 0].argsort()]
     print(timeseries)
-    print(timeseries[288000,:])
+    print(timeseries[MAX_WINDOW_SIZE,:])
+    
     ohlcv_gpu = cuda.to_device(timeseries)
     windows_gpu = cuda.to_device(windows)
     params_gpu = cuda.to_device(params)
     ma_gpu = cuda.device_array(shape=(timeseries.shape[0], windows.shape[0]), dtype=np.float64)
-    result_gpu = cuda.device_array(shape=np_params.shape[0], dtype=np.float64)
-    min_res_gpu = cuda.device_array(shape=np_params.shape[0], dtype=np.float64)
-    max_res_gpu = cuda.device_array(shape=np_params.shape[0], dtype=np.float64)
     
-    threads_per_block_1 = (32, 32)
+    #result_gpu = cuda.device_array(shape=np_params.shape[0], dtype=np.float64)
+    result_gpu = cuda.device_array(shape=(np_params.shape[0], (timeseries.shape[0] - MAX_WINDOW_SIZE) // STEP + 1), dtype=np.float64)
+    
+    threads_per_block_1 = (8, 8)
     blocks_per_grid_1 = cuda_blocks_per_grid_2d((timeseries.shape[0], windows.shape[0]), threads_per_block_1)
 
-    threads_per_block_2 = 256
+    threads_per_block_2 = 64
     blocks_per_grid_2 = cuda_blocks_per_grid(np_params.shape[0], threads_per_block_2)
 
     moving_average_kernel_2d[blocks_per_grid_1, threads_per_block_1](ohlcv_gpu, windows_gpu, ma_gpu)
-    print("MA processed")
-    cross_sim[blocks_per_grid_2, threads_per_block_2](ohlcv_gpu, ma_gpu, params_gpu, result_gpu, min_res_gpu, max_res_gpu)
-    print("SIM executed")
+    
+    cross_sim[blocks_per_grid_2, threads_per_block_2](ohlcv_gpu, ma_gpu, params_gpu, result_gpu)
+    
     res_row = np.array(result_gpu.copy_to_host())
-    min_res = np.array(min_res_gpu.copy_to_host())
-    max_res = np.array(max_res_gpu.copy_to_host())
     print(res_row)
-    print(res_row.max())
-    #print(res_row.min())
-    print("----------------------------------------------------------------")
-    top = res_row.argmax()
-    print(windows[np_params[top, 0]])
-    print(windows[np_params[top, 1]])
-    print("----------------------------------------------------------------")
-    print(min_res[top])
-    print(max_res[top])
-
+    print(res_row.shape)
+    
     windows_out = np.array([[windows[i[0]], windows[i[1]]] for i in np_params], dtype=np.float64)
 
-    res_np = windows_out
-    res_np = np.insert(res_np, res_np.shape[1], res_row, axis=1)
-    res_np = np.insert(res_np, res_np.shape[1], min_res, axis=1)
-    res_np = np.insert(res_np, res_np.shape[1], max_res, axis=1)
-
-    np.savetxt("result/res.csv", res_np, delimiter=",")
-    
-
+    db_res = [{
+        "window_1": windows_out[i, 0],
+        "window_2": windows_out[i, 1],
+        "result": list(res_row[i,:])
+        } for i in range(res_row.shape[0])]
+    mongo_db["cross_ma_opt"].insert_many(db_res)
 
 if __name__ == '__main__':
     main()
