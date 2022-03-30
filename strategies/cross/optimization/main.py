@@ -131,8 +131,10 @@ def load_timeseries():
 
 def main():
     
-    window_short = np.array([5, 10, 15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 300, 330, 360, 390, 420, 480, 540, 600, 720, 980], dtype=np.int64)
-    windows_long = np.linspace(STEP, MAX_WINDOW_SIZE, 200, endpoint=True, dtype=np.int64)
+    #window_short = np.array([5, 10, 15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 300, 330, 360, 390, 420, 480, 540, 600, 720, 980], dtype=np.int64)
+    #windows_long = np.linspace(STEP, MAX_WINDOW_SIZE, 200, endpoint=True, dtype=np.int64)
+    window_short = np.linspace(360, 540, 18, endpoint=True, dtype=np.int64)
+    windows_long = np.linspace(55000, 57000, 100, endpoint=True, dtype=np.int64)
     windows = np.concatenate((window_short, windows_long), axis=0)
     params = []
     for i in range(windows.shape[0]):
@@ -181,7 +183,7 @@ def main():
         "window_2": windows_out[i, 1],
         "result": list(res_row[i,:])
         } for i in range(res_row.shape[0])]
-    mongo_db["cross_ma_opt"].insert_many(db_res)
+    mongo_db["cross_ma_opt_2"].insert_many(db_res)
 
 if __name__ == '__main__':
     main()
