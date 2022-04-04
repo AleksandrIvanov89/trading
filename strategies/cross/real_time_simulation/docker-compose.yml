@@ -15,8 +15,9 @@ services:
     networks:
       - mongodb-network
     ports:
-      - "8051:8051"
+      - "8052:8052"
     environment:
       - TARGET=$TARGET
       - FIREBASE_CREDENTIALS_PATH=$FIREBASE_CREDENTIALS_PATH
+      - FIREBASE_BOT_ID=$FIREBASE_BOT_ID
     restart: unless-stopped
