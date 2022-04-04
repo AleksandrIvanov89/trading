@@ -2,6 +2,5 @@
     "exchange": "binance",
     "symbol": "BTC/USDT",
     "period": "1m",
-    "moving_average_type": "simple",
-    "db_result_name": "cross_ema_opt"
+    "since": "2019-01-01 00:00:00"
 }

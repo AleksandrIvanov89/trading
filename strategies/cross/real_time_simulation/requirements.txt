@@ -1,0 +1,2 @@
+ccxt==1.75.39
+firebase-admin
