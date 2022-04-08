@@ -3,6 +3,7 @@ import json
 import ccxt
 import pandas as pd
 import numpy as np
+import threading
 
 from flask import Flask, jsonify, abort, make_response, request
 from flask.wrappers import Response
@@ -25,6 +26,7 @@ class Exchange():
 
     tohlcv_columns = ["timestamp", "open", "high", "low", "close", "volume"]
     
+    state_run = False
 
     def __init__(self, exchange_name, symbol, history_period):
         self.exchange_name = exchange_name
@@ -44,7 +46,6 @@ class Exchange():
 
 
     def load_ohlcv(self, period, from_timestamp):
-        
         prev_from_timestamp = 0
         tohlcv_list = []
         while prev_from_timestamp != from_timestamp:
@@ -77,34 +78,58 @@ class Exchange():
            self.tohlcv[period] = pd.DataFrame(
                tohlcv_list,
                columns=self.tohlcv_columns)
+           self.tohlcv[period].drop_duplicates(
+               self.tohlcv_columns[0],
+               inplace=True,
+               keep='last')
+        self.state_run = True
 
+
+    def tohlcv_cleanup(self, period):
+        df_len = self.tohlcv[period].shape[0]
+        if df_len - self.cleanup_period > self.history_period:
+            self.tohlcv[period].drop(
+                self.tohlcv[period].index[0:df_len-self.history_period],
+                inplace=True)
 
     def update_tohlcv(self, period):
-        last_timestamp = self.tohlcv[period]['timestamp'].iat[-1]
-        if (last_timestamp <= self.exchange.milliseconds() - self.periods[period]):
-            tohlcv_list = self.load_ohlcv(period, last_timestamp)
-            if len(tohlcv_list) > 0:
-                self.tohlcv[period] = pd.concat(
-                    [
-                        self.tohlcv[period],
-                        pd.DataFrame(tohlcv_list, columns=self.tohlcv_columns)
-                    ],
-                    ignore_index=True)
-                df_len = self.tohlcv[period].shape[0]
-                if df_len - self.cleanup_period > self.history_period:
-                    self.tohlcv[period].drop(
-                        self.tohlcv[period].index[0:df_len-self.history_period],
-                        inplace=True)
+        if len(self.tohlcv[period]['timestamp']) > 0:
+            last_timestamp = self.tohlcv[period]['timestamp'].iat[-1]
+            if (last_timestamp <= self.exchange.milliseconds() - self.periods[period]):
+                self.state_run = False
+                tohlcv_list = self.load_ohlcv(period, last_timestamp)
+                if len(tohlcv_list) > 0:
+                    self.tohlcv[period] = pd.concat(
+                        [
+                            self.tohlcv[period],
+                            pd.DataFrame(tohlcv_list, columns=self.tohlcv_columns)
+                        ],
+                        ignore_index=True)
+                    self.tohlcv[period].drop_duplicates(
+                        self.tohlcv_columns[0],
+                        inplace=True,
+                        keep='last')
+                    self.tohlcv_cleanup(period)
+                self.state_run = True
 
+
+    def update(self):
+        while True:
+            for period in self.periods.keys():
+                self.update_tohlcv(period)
 
     def get_ohlcv_from_timestamp(self, period, from_timestamp):
-        self.update_tohlcv(period)
-        return self.tohlcv[period].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+        if self.state_run:
+            return self.tohlcv[period].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+        else:
+            return pd.DataFrame([])
     
 
     def get_close_from_timestamp(self, period, from_timestamp):
-        self.update_tohlcv(period)
-        return self.tohlcv[period][['timestamp', 'close']].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+        if self.state_run:
+            return self.tohlcv[period][['timestamp', 'close']].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+        else:
+            return pd.DataFrame([])
 
 
 def load_config():
@@ -154,4 +179,6 @@ if __name__ == '__main__':
     global exchange
     exchange = Exchange(exchange_name, symbol, history_period)
     exchange.init_ohlcv()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    thread = threading.Thread(target=exchange.update)
+    thread.start()
+    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
