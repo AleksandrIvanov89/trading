@@ -1,0 +1,5 @@
+{
+    "exchange": "binance",
+    "symbol": "BTC/USDT",
+    "history_period": 1000
+}
