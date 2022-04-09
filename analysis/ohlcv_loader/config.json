@@ -1,6 +1,6 @@
 {
     "exchange": "binance",
     "symbol": "BTC/USDT",
-    "period": "1m",
+    "period": "1d",
     "since": "2019-01-01 00:00:00"
 }

@@ -22,16 +22,16 @@ class Exchange():
         '1h': 360000,
         '1d': 86400000
     }
-    cleanup_period = 1000
 
     tohlcv_columns = ["timestamp", "open", "high", "low", "close", "volume"]
     
     state_run = False
 
-    def __init__(self, exchange_name, symbol, history_period):
+    def __init__(self, exchange_name, symbol, history_period, cleanup_period):
         self.exchange_name = exchange_name
         self.symbol = symbol
         self.history_period = history_period
+        self.cleanup_period = cleanup_period
         self.exchange = getattr(
             ccxt,
             self.exchange_name)(
@@ -92,11 +92,12 @@ class Exchange():
                 self.tohlcv[period].index[0:df_len-self.history_period],
                 inplace=True)
 
+
     def update_tohlcv(self, period):
         if len(self.tohlcv[period]['timestamp']) > 0:
             last_timestamp = self.tohlcv[period]['timestamp'].iat[-1]
             if (last_timestamp <= self.exchange.milliseconds() - self.periods[period]):
-                self.state_run = False
+                
                 tohlcv_list = self.load_ohlcv(period, last_timestamp)
                 if len(tohlcv_list) > 0:
                     self.tohlcv[period] = pd.concat(
@@ -110,13 +111,13 @@ class Exchange():
                         inplace=True,
                         keep='last')
                     self.tohlcv_cleanup(period)
-                self.state_run = True
 
 
     def update(self):
         while True:
             for period in self.periods.keys():
                 self.update_tohlcv(period)
+
 
     def get_ohlcv_from_timestamp(self, period, from_timestamp):
         if self.state_run:
@@ -138,11 +139,14 @@ def load_config():
         exchange_name = json_data.get("exchange") # name from ccxt library
         symbol = json_data.get("symbol") # format - BTC/USDT
         history_period = json_data.get("history_period")
-        return exchange_name, symbol, history_period
+        cleanup_period = json_data.get("cleanup_period")
+        return exchange_name, symbol, history_period, cleanup_period
 
 
 def df_to_json(df):
-    return Response(df.to_json(orient="records"), mimetype='application/json')
+    return Response(
+        df.to_json(orient="records"),
+        mimetype='application/json')
 
 
 @auth.get_password
@@ -175,9 +179,13 @@ def get_close(period, from_timestamp):
 
 
 if __name__ == '__main__':
-    exchange_name, symbol, history_period = load_config()
+    exchange_name, symbol, history_period, cleanup_period = load_config()
     global exchange
-    exchange = Exchange(exchange_name, symbol, history_period)
+    exchange = Exchange(
+        exchange_name,
+        symbol,
+        history_period,
+        cleanup_period)
     exchange.init_ohlcv()
     thread = threading.Thread(target=exchange.update)
     thread.start()
