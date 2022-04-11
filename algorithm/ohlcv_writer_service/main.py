@@ -15,13 +15,16 @@ class DataServiceAPI():
         self.base_url = base_url
         self.auth = (user_name, password)
 
+
     def get_request(self, type, period, from_timestamp):
         return requests.get(
             f"{self.base_url}/{type}/{period}/{from_timestamp}",
             auth=self.auth)
 
+
     def get_ohlcv(self, period, from_timestamp):
         return self.get_request('ohlcv', period, from_timestamp)
+
 
     def get_close(self, period, from_timestamp):
         return self.get_request('close', period, from_timestamp)
@@ -31,7 +34,7 @@ class Database():
 
     periods = {
         '1m': 60000,
-        '1h': 360000,
+        '1h': 3600000,
         '1d': 86400000
     }
 
@@ -50,10 +53,18 @@ class Database():
         '1d': 0
     }
 
+    last_read = {
+        '1m': 0,
+        '1h': 0,
+        '1d': 0
+    }
+
+
     def __init__(self, exchange_name, symbol, data_service_api=None):
         self.exchange_name = exchange_name
         self.symbol = symbol
         self.data_service_api = data_service_api
+
 
     def get_ohlcv_from_data_service(self, period, from_timestamp):
         result = []
@@ -63,9 +74,11 @@ class Database():
                 result = response.json()
         return result
 
+
     @abstractmethod
     def get_last_ohlcv(self, period):
         return None
+
 
     def get_last_timestamp(self, period):
         result = 0
@@ -74,6 +87,7 @@ class Database():
             if tohlcv['timestamp']:
                 result = tohlcv['timestamp']
         return result
+
 
     def write_ohlcv(self, tohlcv_list, period):
         tohlcv_len = len(tohlcv_list)
@@ -87,13 +101,16 @@ class Database():
             except Exception as e:
                 print(f"Error:\n{e}")
 
+
     @abstractmethod
     def write_single_ohlcv(self, tohlcv, period):
         pass
 
+
     @abstractmethod
     def write_multiple_ohlcv(self, tohlcv_list, period):
         pass
+
 
     def update_ohlcv(self, period):
         try:
@@ -109,20 +126,35 @@ class Database():
             print(f"Error:\n{e}")
             return 0
 
+
+    def update_ohlcv_loop(self):
+        while True:
+            for period, step in self.periods.items():
+                cur_time = int(time.time() * 1000)
+                if self.last_read[period] + step < cur_time:
+                    self.update_ohlcv(period)
+                    self.last_read[period] = cur_time
+
+
     def update_ohlcvs_all_periods(self):
         for period in self.periods.keys():
             self.update_ohlcv(period)
 
-    def preprocess_ohlcv(self, tohlcv_list):
-        return [{
-            "timestamp": tohlcv_elem['timestamp'],
-            "datetime": ccxtExchange.iso8601(tohlcv_elem['timestamp']),
-            "open": tohlcv_elem['open'],
-            "high": tohlcv_elem['high'],
-            "low": tohlcv_elem['low'],
-            "close": tohlcv_elem['close'],
-            "volume": tohlcv_elem['volume']
-        } for tohlcv_elem in tohlcv_list]
+
+    def preprocess_ohlcv(self, tohlcv):
+        return {
+            "timestamp": tohlcv['timestamp'],
+            "datetime": ccxtExchange.iso8601(tohlcv['timestamp']),
+            "open": tohlcv['open'],
+            "high": tohlcv['high'],
+            "low": tohlcv['low'],
+            "close": tohlcv['close'],
+            "volume": tohlcv['volume']
+        }
+
+
+    def preprocess_ohlcv_list(self, tohlcv_list):
+        return [self.preprocess_ohlcv(tohlcv) for tohlcv in tohlcv_list]
 
 
 class MongoDB(Database):
@@ -144,6 +176,7 @@ class MongoDB(Database):
             period: self.db[self.exchange_name][self.symbol][period]["ohlcv"] for period in self.periods.keys()
         }
 
+
     def get_last_ohlcv(self, period):
         try:
             result = self.db_periods[period].find_one(
@@ -153,13 +186,16 @@ class MongoDB(Database):
             print(f"Error:\n{e}")
             return 0
 
+
     def write_single_ohlcv(self, tohlcv, period):
         if tohlcv:
-            self.db_periods[period].insert_one(tohlcv)
+            thohlcv_db = self.preprocess_ohlcv(tohlcv)
+            self.db_periods[period].insert_one(thohlcv_db)
+
 
     def write_multiple_ohlcv(self, tohlcv_list, period):
         # prepare ohlcvs for db
-        tohlcv_db_list = self.preprocess_ohlcv(tohlcv_list)
+        tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
         # write ohlcvs to db
         if len(tohlcv_db_list) > 1:
             self.db_periods[period].insert_many(tohlcv_db_list)
@@ -172,6 +208,7 @@ class Firebase(Database):
         self.client = firebase_admin.initialize_app(creds)
         self.db = firestore.client()  # connect to Firestore database
 
+
     def get_last_ohlcv(self, period):
         try:
             #Firebase request#result = self.db[self.exchange_name][self.symbol][period]["ohlcv"].find_one(sort=[("timestamp", pymongo.DESCENDING)])
@@ -181,24 +218,19 @@ class Firebase(Database):
             print(f"Error:\n{e}")
             return 0
 
+
     def write_single_ohlcv(self, tohlcv, period):
         if tohlcv:
+            thohlcv_db = self.preprocess_ohlcv(tohlcv)
             #Firebase request#self.db[self.exchange_name][self.symbol][period]["ohlcv"].insert_one(tohlcv)
             pass
 
+
     def write_multiple_ohlcv(self, tohlcv_list, period):
         # prepare ohlcvs for db
-        tohlcv_db_list = [{
-            "timestamp": tohlcv_elem['timestamp'],
-            "datetime": ccxtExchange.iso8601(tohlcv_elem['timestamp']),
-            "open": tohlcv_elem['open'],
-            "high": tohlcv_elem['high'],
-            "low": tohlcv_elem['low'],
-            "close": tohlcv_elem['close'],
-            "volume": tohlcv_elem['volume']
-        } for tohlcv_elem in tohlcv_list]
+        tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
         # write ohlcvs to db
-        if len(tohlcv_db_list):
+        if len(tohlcv_db_list) > 1:
             #Firebase request#self.db[self.exchange_name][self.symbol][period]["ohlcv"].insert_many(tohlcv_db_list)
             pass
 
@@ -224,7 +256,7 @@ def main():
     mongodb = MongoDB(exchange_name, symbol, mongo_username,
                       mongo_password, "mongodb:27017", data_service_api)
 
-    mongodb.update_ohlcvs_all_periods()
+    mongodb.update_ohlcv_loop()
 
 
 if __name__ == '__main__':
