@@ -3,7 +3,7 @@ import json
 import ccxt
 import pandas as pd
 import numpy as np
-
+from datetime import datetime
 from flask import Flask, jsonify, abort, make_response, request
 from flask.wrappers import Response
 from flask_httpauth import HTTPBasicAuth
@@ -45,109 +45,91 @@ class Exchange():
                     'enableRateLimit': True, 
                 })
         self.markets = self.exchange.load_markets()
-        print(f"{self.exchange_name} exchange successfully initialized")
 
 
     def calc_from_timestamp(self):
         return self.exchange.milliseconds() - self.periods['1m'] * self.history_period
 
 
-    def load_ohlcv(self, period, from_timestamp):
-        print(f"Load from exchange {self.exchange_name} OHLCV {period} starting from {from_timestamp}")
+    def load_ohlcv_from_exchange(self, period, from_timestamp):
+        
         prev_from_timestamp = 0
         tohlcv_list = []
+        
         while prev_from_timestamp != from_timestamp:
             try:
-                print(f"Requesting data starting from {from_timestamp}")
                 tohlcv_list_temp = self.exchange.fetch_ohlcv(
                     self.symbol,
                     period,
                     from_timestamp)
-                print(f"Received {len(tohlcv_list_temp)} OHLCVs, Accumulated OHLCVs {len(tohlcv_list)}")
                 # append data
                 if len(tohlcv_list_temp) > 0:
                     if len(tohlcv_list) > 0:
-                        if tohlcv_list_temp[-1][0] != tohlcv_list[-1][0]:
-                            tohlcv_list += tohlcv_list_temp
+                        tohlcv_list += tohlcv_list_temp
                     else:
                         tohlcv_list = tohlcv_list_temp
-                print(f"OHLCVs {len(tohlcv_list)} after append")
                 # loop variables
                 prev_from_timestamp = from_timestamp
                 if len(tohlcv_list) > 0:
-                    from_timestamp = tohlcv_list[-1][0]
+                    from_timestamp = tohlcv_list[-1][0] + 1
             except Exception as e:
                 print(f"Error: {e}")
-                print(f"Args: {e.args}")
-        return tohlcv_list
-        
 
-    def init_ohlcv(self):
+        cur_timestamp = self.exchange.milliseconds()
+        cur_timestamp_cut = cur_timestamp - (cur_timestamp % self.periods[period])
+        
+        result = pd.DataFrame(tohlcv_list, columns=self.tohlcv_columns)
+        
+        result = result.loc[result['timestamp'] < cur_timestamp_cut]
+        return result
+
+    def load_initial_ohlcvs(self):
         from_timestamp = self.calc_from_timestamp()
-        print(f"Init OHLCVs starting from {from_timestamp}")
         self.tohlcv = {}
         for period in self.periods.keys():
-            print(f"Init OHLCVs starting from {from_timestamp} for period {period}")
-            tohlcv_list = self.load_ohlcv(period, from_timestamp)
-            self.tohlcv[period] = pd.DataFrame(
-                tohlcv_list,
-                columns=self.tohlcv_columns)
-            self.tohlcv[period].drop_duplicates(
-                self.tohlcv_columns[0],
-                inplace=True,
-                keep='last')
-            print(f"After init df {period} contains {self.tohlcv[period].shape[0]}")
-        print(f"All dfs initialized")
+            self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
         self.state_run = True
+
+
+    def update_tohlcv(self, period):
+        if (self.tohlcv[period].shape[0] > 0) and self.state_run:
+            last_timestamp = self.get_last_timestamp_from_df(period)
+            cur_timestamp = self.exchange.milliseconds()
+            cur_timestamp_cut = cur_timestamp - (cur_timestamp % self.periods[period])
+            print(f"Current exchange timestamp {cur_timestamp}")
+            print(f"Current exchange time {self.exchange_time_str()}")
+            print(f"Last in df timestamp {last_timestamp}")
+            print(f"Last in df time {self.timestamp_to_str(last_timestamp)}")
+            print(f"Last OHLCV for period {period}\n{self.tohlcv[period].tail(3)}")
+            print("COMPARISON")
+            print(f"{cur_timestamp_cut}\n{last_timestamp + self.periods[period]}")
+            print(f"{cur_timestamp_cut - last_timestamp - self.periods[period]}")
+            if cur_timestamp_cut > last_timestamp + self.periods[period]:
+                tohlcv_new = self.load_ohlcv_from_exchange(period, last_timestamp + 1)
+                if tohlcv_new.shape[0] > 0:
+                    self.tohlcv[period] = pd.concat([self.tohlcv[period], tohlcv_new], ignore_index=True)
+                    self.tohlcv_cleanup(period)
+                    print(f"Last OHLCV after update for period {period}\n{self.tohlcv[period].tail(3)}")
+
+        
+    @staticmethod
+    def timestamp_to_str(timestamp):
+         return datetime.fromtimestamp(int(timestamp/1000)).strftime("%m/%d/%Y, %H:%M:%S")
+
+    
+    def exchange_time_str(self):
+        return self.timestamp_to_str(self.exchange.milliseconds())
 
 
     def tohlcv_cleanup(self, period):
         df_len = self.tohlcv[period].shape[0]
-        print(f"Need cleanup df {period}")
         if df_len - self.cleanup_period > self.history_period:
-            print(f"Cleanup df {period}")
-            self.tohlcv[period].drop(
-                self.tohlcv[period].index[0:df_len-self.history_period],
-                inplace=True)
+            self.tohlcv[period].drop(self.tohlcv[period].index[0:df_len-self.history_period], inplace=True)
 
 
     def get_last_timestamp_from_df(self, period):
         return self.tohlcv[period]['timestamp'].iat[-1]
-
-    
-    def check_need_to_update(self, period, last_timestamp):
-        #print(f"Checking for {period}: {self.exchange.milliseconds()} - {self.periods[period]} >= {last_timestamp}")
-        cur_timestamp = self.exchange.milliseconds()
-        return cur_timestamp - (cur_timestamp % self.periods[period]) - self.periods[period] >= last_timestamp
-
-
-    def update_tohlcv(self, period):
-        if self.tohlcv[period].shape[0] > 0:
-            last_timestamp = self.get_last_timestamp_from_df(period)
-            if self.check_need_to_update(period, last_timestamp):
-                print(f"Update started {ccxt.Exchange.iso8601(self.exchange.milliseconds())} for period {period}")
-                print(f"Last timestamp added {last_timestamp} - {ccxt.Exchange.iso8601(int(last_timestamp/1000))} for period {period}")
-                tohlcv_list = self.load_ohlcv(period, last_timestamp)
-                if len(tohlcv_list) > 0:# check the last elem
-                    print(f"OHLCV {period} loaded {len(tohlcv_list)}\n{tohlcv_list}")
-                    print(f"OHLCV before update {self.tohlcv[period].tail(5)}")
-                    self.tohlcv[period] = pd.concat(
-                        [
-                            self.tohlcv[period],
-                            pd.DataFrame(tohlcv_list, columns=self.tohlcv_columns)
-                        ],
-                        ignore_index=True
-                        )
-                    self.tohlcv[period].drop_duplicates(
-                        self.tohlcv_columns[0],
-                        inplace=True,
-                        keep='last'
-                        )
-                    self.tohlcv_cleanup(period)
-                    print(f"OHLCV after update {self.tohlcv[period].tail(5)}")
                     
-                    
-
 
     def update(self):
         if self.state_run:
@@ -191,6 +173,7 @@ auth = HTTPBasicAuth()
 app = Flask(__name__)
 exchange_name, symbol, history_period, cleanup_period = load_config()
 exchange = Exchange(exchange_name, symbol, history_period, cleanup_period)
+exchange.load_initial_ohlcvs()
 
 app.config.from_object(Flask_App_Config())
 scheduler = APScheduler()
@@ -244,12 +227,12 @@ def get_close(period, from_timestamp):
             )
         )
 
-@scheduler.task('interval', id='update', seconds=1, max_instances=1)
+@scheduler.task('interval', id='update', seconds=10, max_instances=1)
 def update():
-    if exchange.state_run:
-        exchange.update()
-    else:
-        exchange.init_ohlcv()
+    #if exchange.state_run:
+    exchange.update()
+    #else:
+    #    exchange.load_initial_ohlcvs()
 
 
 if __name__ == '__main__':
