@@ -71,7 +71,7 @@ def main():
           # loop variables
           prev_from_timestamp = from_timestamp
           if len(tohlcv_list) > 0:
-            from_timestamp = tohlcv_list[-1][0]
+            from_timestamp = tohlcv_list[-1][0] + 1
         # process exception
         except Exception as e:
           print("Error: ", e)
