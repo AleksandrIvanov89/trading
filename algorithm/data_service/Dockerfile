@@ -7,6 +7,7 @@ ADD main.py .
 COPY .env .env
 COPY config.json config.json
 COPY requirements.txt requirements.txt
+COPY exchange/* exchange/
 
 RUN pip install -r requirements.txt
 

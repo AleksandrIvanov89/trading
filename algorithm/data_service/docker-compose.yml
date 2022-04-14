@@ -20,4 +20,6 @@ services:
       - TARGET=$TARGET
       - REST_API_USER=$REST_API_USER
       - REST_API_PASSWORD=$REST_API_PASSWORD
+    volumes:
+      - /home/axel/Documents/trading/trading/algorithm/data_service/logs:/logs
     restart: unless-stopped

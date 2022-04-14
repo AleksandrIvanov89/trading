@@ -3,6 +3,12 @@ import ccxt
 import pymongo
 import json
 
+periods = {
+        '1m': 60000,
+        '1h': 3600000,
+        '1d': 86400000
+    }
+
 def main():
   # get environment variables
   mongo_username = os.environ.get("MONGO_USERNAME")
@@ -31,18 +37,19 @@ def main():
       exchange = getattr(ccxt, exchange_name)({'enableRateLimit': True, })
 
       markets = exchange.load_markets()
+      ohlcv_db = mongo_db[exchange_name][symbol][period]["ohlcv"]
 
-      ohlcvs_num = mongo_db[exchange_name][symbol][period]["ohlcv"].count_documents({})
+      ohlcvs_num = ohlcv_db.count_documents({})
       print("OHLCVs in db: ", ohlcvs_num)
       
       # get count of ohlcvs in db
-      ohlcvs_num = mongo_db[exchange_name][symbol][period]["ohlcv"].count_documents({})
+      ohlcvs_num = ohlcv_db.count_documents({})
       print("OHLCVs in db: ", ohlcvs_num)
       
       # get timestamp
       from_timestamp = exchange.parse8601(from_datetime) \
         if ohlcvs_num == 0 else \
-          mongo_db[exchange_name][symbol][period]["ohlcv"].find_one(sort=[("timestamp", pymongo.DESCENDING)])['timestamp'] + 1
+          ohlcv_db.find_one(sort=[("timestamp", pymongo.DESCENDING)])['timestamp'] + 1
 
       # set now timestamp
       now = exchange.milliseconds()
@@ -52,7 +59,16 @@ def main():
         try:    
           # get ohlcvs from exchange
           tohlcv_list = exchange.fetch_ohlcv(symbol, period, from_timestamp)
+          # loop variables
+          prev_from_timestamp = from_timestamp
+          if len(tohlcv_list) > 0:
+            from_timestamp = tohlcv_list[-1][0] + 1
 
+            cur_exchange_timestamp = exchange.milliseconds()
+          
+            if tohlcv_list[-1][0] >= cur_exchange_timestamp - (cur_exchange_timestamp % periods[period]):
+              del tohlcv_list[-1]
+          
           # prepare ohlcvs for db
           tohlcv_db_list = [
             {
@@ -65,13 +81,9 @@ def main():
               "volume": tohlcv_elem[5],
               "period": period
               } for tohlcv_elem in tohlcv_list]
-          # write ohlcvs to db
+              # write ohlcvs to db
           if len(tohlcv_db_list):
-            mongo_db[exchange_name][symbol][period]["ohlcv"].insert_many(tohlcv_db_list)
-          # loop variables
-          prev_from_timestamp = from_timestamp
-          if len(tohlcv_list) > 0:
-            from_timestamp = tohlcv_list[-1][0] + 1
+            ohlcv_db.insert_many(tohlcv_db_list)
         # process exception
         except Exception as e:
           print("Error: ", e)
