@@ -40,9 +40,10 @@ auth = HTTPBasicAuth()
 app = Flask(__name__)
 
 logger = Logger("/logs/logs.log")
+
 exchange_name, symbol, history_period, cleanup_period = load_config()
 exchange = Exchange(exchange_name, symbol, history_period, cleanup_period, logger)
-
+db = MongoDB(exchange_name, symbol, os.environ.get("MONGO_USERNAME"), os.environ.get("MONGO_PASSWORD"))
 app.config.from_object(Flask_App_Config())
 scheduler = APScheduler()
 scheduler.init_app(app)
@@ -52,7 +53,7 @@ rest_api_password = os.environ.get("REST_API_PASSWORD")
 
 
 def initialize():
-    exchange.load_initial_ohlcvs()
+    exchange.load_initial_ohlcvs(db)
     scheduler.start()
 
 
@@ -128,7 +129,7 @@ def update_1m():
     """
     Schedule update of 1m OHLCV
     """
-    exchange.update_tohlcv('1m')
+    exchange.check_update('1m')
 
 
 @scheduler.task('interval', id='update_1h', minutes=1, max_instances=1)
@@ -136,7 +137,7 @@ def update_1h():
     """
     Schedule update of 1h OHLCV
     """
-    exchange.update_tohlcv('1h')
+    exchange.check_update('1h')
 
 
 @scheduler.task('interval', id='update_1d', hours=1, max_instances=1)
@@ -144,7 +145,7 @@ def update_1d():
     """
     Schedule update of 1d OHLCV
     """
-    exchange.update_tohlcv('1d')
+    exchange.check_update('1d')
 
 
 if __name__ == '__main__':

@@ -20,6 +20,8 @@ services:
       - TARGET=$TARGET
       - REST_API_USER=$REST_API_USER
       - REST_API_PASSWORD=$REST_API_PASSWORD
+      - MONGO_USERNAME=$MONGO_USERNAME
+      - MONGO_PASSWORD=$MONGO_PASSWORD
     volumes:
       - /home/axel/Documents/trading/trading/algorithm/data_service/logs:/logs
     restart: unless-stopped

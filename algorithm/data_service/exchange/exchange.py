@@ -2,6 +2,8 @@ import pandas as pd
 from datetime import datetime
 import ccxt
 from .logger import *
+from .exchanges_db import *
+from .mongo import *
 
 class Exchange():
     
@@ -73,7 +75,7 @@ class Exchange():
                     from_timestamp = tohlcv_list[-1][0] + 1
             except Exception as e:
                 if self.logger != None:
-                    self.logger.exception(e)
+                    self.logger.error(e)
                 else:
                     print(f"Error: {e}")
 
@@ -85,7 +87,8 @@ class Exchange():
         result = result.loc[result['timestamp'] < cur_timestamp_cut]
         return result
 
-    def load_initial_ohlcvs(self):
+
+    def load_initial_ohlcvs(self, db):
         """
         Load initial OHLCVs for all periods
         """
@@ -96,8 +99,31 @@ class Exchange():
         from_timestamp = self.calc_from_timestamp()
         self.tohlcv = {}
         for period in self.periods.keys():
-            self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
+            try:
+                temp = self.tohlcv[period] = db.get_ohlcv_from_db(period, from_timestamp)
+                print(temp)
+                if temp.shape[0] > 0:
+                    self.tohlcv[period] = temp[self.tohlcv_columns]
+                    print(f"tOHLCV after init from db\n{self.tohlcv[period].tail(5)}")
+                    self.update_tohlcv(period)
+                    print(f"tOHLCV after update\n{self.tohlcv[period].tail(5)}")
+                else:
+                    self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
+                    print(f"tOHLCV after init from exchange\n{self.tohlcv[period].tail(5)}")
+            except Exception as e:
+                if self.logger != None:
+                    self.logger.exception(f"Load from db failed:\n{e}")
+                    self.logger.info(f"Load from exchange")
+                else:
+                    print(f"Load from db failed:\n{e}")
+                    print(f"Load from exchange")
+                self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
+                print(f"tOHLCV after init from exchange\n{self.tohlcv[period].tail(5)}")
         self.state_run = True
+
+    def check_update(self, period):
+        if (self.tohlcv[period].shape[0] > 0) and self.state_run:
+            self.update_tohlcv(period)
 
 
     def update_tohlcv(self, period):
@@ -106,21 +132,14 @@ class Exchange():
 
         :param period: timeframe - 1m, 1h, 1d...
         """
-        if (self.tohlcv[period].shape[0] > 0) and self.state_run:
-            last_timestamp = self.get_last_timestamp_from_df(period)
-            cur_timestamp = self.exchange.milliseconds()
-            cur_timestamp_cut = cur_timestamp - (cur_timestamp % self.periods[period])
-            if cur_timestamp_cut > last_timestamp + self.periods[period]:
-                tohlcv_new = self.load_ohlcv_from_exchange(period, last_timestamp + 1)
-                if tohlcv_new.shape[0] > 0:
-                    self.tohlcv[period] = pd.concat(
-                        [
-                            self.tohlcv[period],
-                            tohlcv_new
-                            ],
-                        ignore_index=True
-                        )
-                    self.tohlcv_cleanup(period)
+        last_timestamp = self.get_last_timestamp_from_df(period)
+        cur_timestamp = self.exchange.milliseconds()
+        cur_timestamp_cut = cur_timestamp - (cur_timestamp % self.periods[period])
+        if cur_timestamp_cut > last_timestamp + self.periods[period]:
+            tohlcv_new = self.load_ohlcv_from_exchange(period, last_timestamp + 1)
+            if tohlcv_new.shape[0] > 0:
+                self.tohlcv[period] = pd.concat([self.tohlcv[period], tohlcv_new],ignore_index=True)
+                self.tohlcv_cleanup(period)
 
         
     @staticmethod
