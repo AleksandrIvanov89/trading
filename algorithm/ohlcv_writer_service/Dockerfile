@@ -7,6 +7,7 @@ ADD main.py .
 COPY .env .env
 COPY config.json config.json
 COPY firebase_credentials.json.env firebase_credentials.json
+COPY exchanges_db/* exchanges_db/
 COPY requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt
