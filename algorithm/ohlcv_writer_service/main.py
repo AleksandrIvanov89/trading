@@ -15,37 +15,36 @@ def load_config():
 
 def main():
     exchange_name, symbol = load_config()
-    #os.environ.get("FIREBASE_CREDENTIALS_PATH"), os.environ.get("FIREBASE_BOT_ID")
-
+    
     data_service_api = DataServiceAPI(
         os.environ.get("REST_API_BASE_URL"),
         os.environ.get("REST_API_USER"),
         os.environ.get("REST_API_PASSWORD")
         )
 
-    mongodb = MongoDB(
-        exchange_name,
-        symbol,
-        os.environ.get("MONGO_USERNAME"),
-        os.environ.get("MONGO_PASSWORD"),
-        "mongodb:27017",
-        data_service_api
-        )
-
-    mongodb.update_ohlcvs_all_periods()
-
-    schedule.every().minute.at(":20").do(
-        mongodb.update_ohlcv,
-        period='1m'
-        )
-    schedule.every().hour.at(":01").do(
-        mongodb.update_ohlcv,
-        period='1h'
-        )
-    schedule.every().day.at("00:01").do(
-        mongodb.update_ohlcv,
-        period='1d'
-        )
+    db_list = [
+        MongoDB(
+            exchange_name,
+            symbol,
+            os.environ.get("MONGO_USERNAME"),
+            os.environ.get("MONGO_PASSWORD"),
+            "mongodb:27017",
+            data_service_api
+        ),
+        Firebase(
+            exchange_name,
+            symbol,
+            os.environ.get("FIREBASE_CREDENTIALS_PATH"),
+            data_service_api
+        )]
+    
+    def update(period):
+        for db in db_list:
+            db.update_ohlcv(period)
+    
+    schedule.every().minute.at(":15").do(update, period='1m')
+    schedule.every().hour.at(":01").do(update, period='1h')
+    schedule.every().day.at("00:01").do(update, period='1d')
     
     while True:
         schedule.run_pending()

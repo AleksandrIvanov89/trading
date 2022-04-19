@@ -11,7 +11,7 @@ class MongoDB(Database):
         password,
         socket_path="mongodb:27017",
         data_service_api=None
-    ):
+        ):
         super().__init__(exchange_name, symbol, data_service_api)
         self.client = pymongo.MongoClient(
             f"mongodb://{username}:{password}@{socket_path}")
@@ -33,14 +33,6 @@ class MongoDB(Database):
     
     def get_ohlcv_from_db(self, period, from_timestamp=None):
         try:
-            """res = self.db_periods[period].find()\
-                if from_timestamp is None else\
-                    self.db_periods[period].find(
-                        {'timestamp': {'$gte': from_timestamp}})
-            res_df = pd.DataFrame(list(res))
-            res_df = res_df[self.tohlcv_columns]
-            res_df.sort_values(by=['timestamp'], inplace=True, ascending=True)"""
-            #.sort([("timestamp", pymongo.ASCENDING)])
             res = self.db_periods[period].find().sort([("timestamp", pymongo.ASCENDING)])\
                 if from_timestamp is None else\
                     self.db_periods[period].find({'timestamp': {'$gte': from_timestamp}}).sort([("timestamp", pymongo.ASCENDING)])
