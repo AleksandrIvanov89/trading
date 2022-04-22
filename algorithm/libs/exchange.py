@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 import ccxt
 from .logger import *
-from .exchanges_db import *
+from .database import *
 from .mongo import *
 
 class Exchange():
@@ -24,25 +24,26 @@ class Exchange():
     
     state_run = False
 
-    def __init__(
-        self,
-        exchange_name,
-        symbol,
-        history_period,
-        cleanup_period,
-        logger=None
-        ):
+    pairs = []
+    ccxt_id = ''
+    exchange_name = ''
+
+    def __init__(self, db=None, exchange_id=None, logger=None):
+        if not(db is None):
+            self.init_from_db(db, exchange_id)
         self.logger = logger
-        self.exchange_name = exchange_name
-        self.symbol = symbol
+        
+
+    def init_from_db(self, db, exchange_id):
+        self.exchange_name, self.ccxt_id, self.pairs = db.get_exchange(exchange_id)
+
+
+    def set_periods_params(self, history_period, cleanup_period):
         self.history_period = history_period
         self.cleanup_period = cleanup_period
-        self.exchange = getattr(
-            ccxt,
-            self.exchange_name)(
-                {
-                    'enableRateLimit': True, 
-                })
+
+    def connect_to_exchange(self):
+        self.exchange = getattr(ccxt, self.ccxt_id)({'enableRateLimit': True, })
         self.markets = self.exchange.load_markets()
 
 
@@ -53,7 +54,7 @@ class Exchange():
         return self.exchange.milliseconds() - self.periods['1m'] * self.history_period
 
 
-    def load_ohlcv_from_exchange(self, period, from_timestamp):
+    def load_ohlcv_from_exchange(self, symbol, period, from_timestamp):
         """
         Load OHLCVs from exchange
 
@@ -67,7 +68,7 @@ class Exchange():
             try:
                 print(f"Loading OHLCVs starting from {from_timestamp}")
                 tohlcv_list_temp = self.exchange.fetch_ohlcv(
-                    self.symbol,
+                    symbol,
                     period,
                     from_timestamp)
                 # append data
@@ -99,54 +100,63 @@ class Exchange():
         """
         Load initial OHLCVs for all periods
         """
-        if self.logger != None:
-            self.logger.info(f"Loading initial OHLCVs")
-        else:
-            print(f"Loading initial OHLCVs")
         from_timestamp = self.calc_from_timestamp()
         self.tohlcv = {}
-        for period in self.periods.keys():
-            try:
-                temp = self.tohlcv[period] = db.get_ohlcv_from_db(period, from_timestamp)
-                print(temp)
-                if temp.shape[0] > 0:
-                    self.tohlcv[period] = temp[self.tohlcv_columns]
-                    print(f"tOHLCV after init from db\n{self.tohlcv[period].tail(5)}")
-                    self.update_tohlcv(period)
-                    print(f"tOHLCV after update\n{self.tohlcv[period].tail(5)}")
-                else:
-                    self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
+        for pair in self.pairs:
+            self.tohlcv[pair] = {}
+            for period in self.periods.keys():
+                try:
+                    temp = self.tohlcv[pair][period] = db.get_ohlcv_from_db(
+                        pair,
+                        period,
+                        from_timestamp)
+                    print(temp)
+                    if temp.shape[0] > 0:
+                        self.tohlcv[pair][period] = temp[self.tohlcv_columns]
+                        print(f"tOHLCV after init from db\n{self.tohlcv[period].tail(5)}")
+                        self.update_tohlcv(pair, period)
+                        print(f"tOHLCV after update\n{self.tohlcv[period].tail(5)}")
+                    else:
+                        self.tohlcv[pair][period] = self.load_ohlcv_from_exchange(
+                            pair,
+                            period,
+                            from_timestamp)
+                        print(f"tOHLCV after init from exchange\n{self.tohlcv[period].tail(5)}")
+                except Exception as e:
+                    if self.logger != None:
+                        self.logger.exception(f"Load from db failed:\n{e}")
+                        self.logger.info(f"Load from exchange")
+                    else:
+                        print(f"Load from db failed:\n{e}")
+                        print(f"Load from exchange")
+                    self.tohlcv[pair][period] = self.load_ohlcv_from_exchange(
+                        pair,
+                        period,
+                        from_timestamp)
                     print(f"tOHLCV after init from exchange\n{self.tohlcv[period].tail(5)}")
-            except Exception as e:
-                if self.logger != None:
-                    self.logger.exception(f"Load from db failed:\n{e}")
-                    self.logger.info(f"Load from exchange")
-                else:
-                    print(f"Load from db failed:\n{e}")
-                    print(f"Load from exchange")
-                self.tohlcv[period] = self.load_ohlcv_from_exchange(period, from_timestamp)
-                print(f"tOHLCV after init from exchange\n{self.tohlcv[period].tail(5)}")
         self.state_run = True
 
-    def check_update(self, period):
-        if (self.tohlcv[period].shape[0] > 0) and self.state_run:
-            self.update_tohlcv(period)
+    def check_update(self, pair, period):
+        if (self.tohlcv[pair][period].shape[0] > 0) and self.state_run:
+            self.update_tohlcv(pair, period)
 
 
-    def update_tohlcv(self, period):
+    def update_tohlcv(self, pair, period):
         """
         Get new OHLCVs from exchange
 
         :param period: timeframe - 1m, 1h, 1d...
         """
-        last_timestamp = self.get_last_timestamp_from_df(period)
+        last_timestamp = self.get_last_timestamp_from_df(pair, period)
         cur_timestamp = self.exchange.milliseconds()
         cur_timestamp_cut = cur_timestamp - (cur_timestamp % self.periods[period])
         if cur_timestamp_cut > last_timestamp + self.periods[period]:
-            tohlcv_new = self.load_ohlcv_from_exchange(period, last_timestamp + 1)
+            tohlcv_new = self.load_ohlcv_from_exchange(pair, period, last_timestamp + 1)
             if tohlcv_new.shape[0] > 0:
-                self.tohlcv[period] = pd.concat([self.tohlcv[period], tohlcv_new],ignore_index=True)
-                self.tohlcv_cleanup(period)
+                self.tohlcv[pair][period] = pd.concat(
+                    [self.tohlcv[pair][period], tohlcv_new],
+                    ignore_index=True)
+                self.tohlcv_cleanup(pair, period)
 
         
     @staticmethod
@@ -163,30 +173,30 @@ class Exchange():
         """
         Convert the current exchange time to a string representation
         """
-        return self.timestamp_to_str(
-            self.exchange.milliseconds()
-            )
+        return self.timestamp_to_str(self.exchange.milliseconds())
 
 
-    def tohlcv_cleanup(self, period):
+    def tohlcv_cleanup(self, pair, period):
         """
         Decrease the length of the buffer (self.tohlcv)
         """
-        df_len = self.tohlcv[period].shape[0]
+        df_len = self.tohlcv[pair][period].shape[0]
         if df_len - self.cleanup_period > self.history_period:
-            self.tohlcv[period].drop(self.tohlcv[period].index[0:df_len-self.history_period], inplace=True)
+            self.tohlcv[pair][period].drop(
+                self.tohlcv[pair][period].index[0:df_len-self.history_period],
+                inplace=True)
 
 
-    def get_last_timestamp_from_df(self, period):
+    def get_last_timestamp_from_df(self, pair, period):
         """
         Get last timestamp in self.tohlcv for period
 
         :param period: timeframe - 1m, 1h, 1d...
         """
-        return self.tohlcv[period]['timestamp'].iat[-1]
+        return self.tohlcv[pair][period]['timestamp'].iat[-1]
                     
 
-    def get_ohlcv_from_timestamp(self, period, from_timestamp):
+    def get_ohlcv_from_timestamp(self, pair, period, from_timestamp):
         """
         Get last timestamp in self.tohlcv for period
 
@@ -195,12 +205,12 @@ class Exchange():
         """
         print(f"Get OHLCV {period} from API starting from {from_timestamp}")
         if self.state_run:
-            return self.tohlcv[period].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+            return self.tohlcv[pair][period].loc[self.tohlcv[pair][period]['timestamp'] > from_timestamp]
         else:
             return pd.DataFrame([])
     
 
-    def get_close_from_timestamp(self, period, from_timestamp):
+    def get_close_from_timestamp(self, pair, period, from_timestamp):
         """
         Get last timestamp in self.tohlcv for period
 
@@ -209,6 +219,18 @@ class Exchange():
         """
         print(f"Get close {period} from API starting from {from_timestamp}")
         if self.state_run:
-            return self.tohlcv[period][['timestamp', 'close']].loc[self.tohlcv[period]['timestamp'] > from_timestamp]
+            return self.tohlcv[pair][period][['timestamp', 'close']].loc[self.tohlcv[pair][period]['timestamp'] > from_timestamp]
+        else:
+            return pd.DataFrame([])
+
+    
+    def get_last_close(self, pair, period):
+        """
+        Get last timestamp in self.tohlcv for period
+
+        :param period: timeframe - 1m, 1h, 1d...
+        """
+        if self.state_run:
+            return self.tohlcv[pair][period][['timestamp', 'close']].loc[self.tohlcv[pair][period]['timestamp'].idxmax()]
         else:
             return pd.DataFrame([])

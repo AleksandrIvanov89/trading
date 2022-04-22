@@ -7,23 +7,23 @@ networks:
         config:
           - subnet: 172.16.57.0/24
 services:
-  ohlcv-writer-service:
+  accounts-service:
     build:
       context: .
-    image: ohlcv-writer-service:$VERSION
-    container_name: ohlcv-writer-service
+      dockerfile: Dockerfile
+    image: accounts-service:$VERSION
+    container_name: accounts-service
     networks:
       - mongodb-network
     ports:
-      - "8055:8055"
+      - "5000:5001"
     environment:
       - TARGET=$TARGET
       - REST_API_USER=$REST_API_USER
       - REST_API_PASSWORD=$REST_API_PASSWORD
-      - REST_API_BASE_URL=$REST_API_BASE_URL
-      - FIREBASE_CREDENTIALS_PATH=$FIREBASE_CREDENTIALS_PATH
       - MONGO_USERNAME=$MONGO_USERNAME
       - MONGO_PASSWORD=$MONGO_PASSWORD
+      - DB_ACCOUNT_ID=$DB_ACCOUNT_ID
     volumes:
-      - /home/axel/Documents/trading/trading/algorithm/ohlcv_writer_service/logs:/logs
+      - /home/axel/Documents/trading/trading/algorithm/accounts_service/logs:/logs
     restart: unless-stopped

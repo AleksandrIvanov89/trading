@@ -2,7 +2,7 @@ from abc import abstractmethod
 from ccxt import Exchange as ccxtExchange
 import time
 from .data_service_api import *
-
+from .logger import *
 
 class Database():
     
@@ -34,10 +34,24 @@ class Database():
     }
 
 
-    def __init__(self, exchange_name, symbol, data_service_api=None):
+    def __init__(
+        self,
+        exchange_name,
+        symbol,
+        data_service_api=None,
+        logger=None
+        ):
         self.exchange_name = exchange_name
         self.symbol = symbol
         self.data_service_api = data_service_api
+        self.logger = logger
+
+
+    def _error(self, e):
+        if self.logger != None:
+            self.logger.error(f"Error:\n{e}")
+        else:
+            print(f"Error:\n{e}")
 
 
     def get_ohlcv_from_data_service(self, period, from_timestamp):
@@ -78,7 +92,7 @@ class Database():
                     self.write_multiple_ohlcv(tohlcv_list, period)
                 self.last_timestamp[period] = tohlcv_list[-1]['timestamp']
             except Exception as e:
-                print(f"Error:\n{e}")
+                self._error(e)
 
 
     @abstractmethod
@@ -98,11 +112,12 @@ class Database():
 
             ohlcv_list = self.get_ohlcv_from_data_service(
                 period,
-                self.last_timestamp[period])
+                self.last_timestamp[period]
+                )
 
             self.write_ohlcv(ohlcv_list, period)
         except Exception as e:
-            print(f"Error:\n{e}")
+            self._error(e)
             return 0
 
 

@@ -15,11 +15,13 @@ def load_config():
 
 def main():
     exchange_name, symbol = load_config()
+    logger = Logger("/logs/logs.log")
     
     data_service_api = DataServiceAPI(
         os.environ.get("REST_API_BASE_URL"),
         os.environ.get("REST_API_USER"),
-        os.environ.get("REST_API_PASSWORD")
+        os.environ.get("REST_API_PASSWORD"),
+        logger
         )
 
     db_list = [
@@ -29,13 +31,15 @@ def main():
             os.environ.get("MONGO_USERNAME"),
             os.environ.get("MONGO_PASSWORD"),
             "mongodb:27017",
-            data_service_api
+            data_service_api,
+            logger
         ),
         Firebase(
             exchange_name,
             symbol,
             os.environ.get("FIREBASE_CREDENTIALS_PATH"),
-            data_service_api
+            data_service_api,
+            logger
         )]
     
     def update(period):

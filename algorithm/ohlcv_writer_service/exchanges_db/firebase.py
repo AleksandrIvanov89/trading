@@ -1,7 +1,7 @@
 from .exchanges_db import *
 import firebase_admin
 from firebase_admin import credentials, firestore
-
+from .logger import *
 class Firebase(Database):
    
     def __init__(
@@ -9,9 +9,10 @@ class Firebase(Database):
         exchange_name,
         symbol,
         credentials_path,
-        data_service_api=None
+        data_service_api=None,
+        logger=None
         ):
-        super().__init__(exchange_name, symbol, data_service_api)
+        super().__init__(exchange_name, symbol, data_service_api, logger)
         creds = credentials.Certificate(credentials_path)
         self.client = firebase_admin.initialize_app(creds)
         self.db = firestore.client()  # connect to Firestore database
@@ -35,15 +36,17 @@ class Firebase(Database):
             if len(temp) > 0:
                 result = temp[0]['timestamp']
         except Exception as e:
-            print(f"Error:\n{e}")
+            self._error(e)
         return result
 
 
     def write_single_ohlcv(self, tohlcv, period):
-        if tohlcv:
-            thohlcv_db = self.preprocess_ohlcv(tohlcv)
-            self.exchange_ref.collection(period).add(thohlcv_db)
-
+        try:
+            if tohlcv:
+                thohlcv_db = self.preprocess_ohlcv(tohlcv)
+                self.exchange_ref.collection(period).add(thohlcv_db)
+        except Exception as e:
+            self._error(e)
 
     def _batch_data(self, tohlcv_list, n=499):
         l = len(tohlcv_list)
@@ -55,10 +58,12 @@ class Firebase(Database):
         # prepare ohlcvs for db
         tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
         # write ohlcvs to db
-        for batch_data in self._batch_data(tohlcv_db_list):
-            batch = self.db.batch()
-            for data_item in batch_data:
-                doc_ref = self.exchange_ref.collection(period).document()
-                batch.set(doc_ref, data_item)
-            batch.commit()
-
+        try:
+            for batch_data in self._batch_data(tohlcv_db_list):
+                batch = self.db.batch()
+                for data_item in batch_data:
+                    doc_ref = self.exchange_ref.collection(period).document()
+                    batch.set(doc_ref, data_item)
+                batch.commit()
+        except Exception as e:
+            self._error(e)

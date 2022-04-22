@@ -1,5 +1,6 @@
 import requests
 from .logger import *
+
 class DataServiceAPI():
     
     def __init__(self, base_url, user_name, password, logger=None):

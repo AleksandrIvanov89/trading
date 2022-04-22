@@ -21,6 +21,16 @@ class MongoDB(Database):
         }
 
 
+    def get_active_exchanges(self):
+        resp = list(self.db["exchanges"].find({'active_symbols': {"$exists": True}}))
+        res = []
+        for exchange_i in resp:
+            for symbol in exchange_i['active_symbols']:
+                res += [{'exchange': exchange_i['ccxt_id'], 'symbol': symbol}]
+        return res
+
+
+
     def get_last_ohlcv(self, period):
         try:
             result = self.db_periods[period].find_one(
@@ -33,14 +43,6 @@ class MongoDB(Database):
     
     def get_ohlcv_from_db(self, period, from_timestamp=None):
         try:
-            """res = self.db_periods[period].find()\
-                if from_timestamp is None else\
-                    self.db_periods[period].find(
-                        {'timestamp': {'$gte': from_timestamp}})
-            res_df = pd.DataFrame(list(res))
-            res_df = res_df[self.tohlcv_columns]
-            res_df.sort_values(by=['timestamp'], inplace=True, ascending=True)"""
-            #.sort([("timestamp", pymongo.ASCENDING)])
             res = self.db_periods[period].find().sort([("timestamp", pymongo.ASCENDING)])\
                 if from_timestamp is None else\
                     self.db_periods[period].find({'timestamp': {'$gte': from_timestamp}}).sort([("timestamp", pymongo.ASCENDING)])

@@ -1,0 +1,29 @@
+version: "3.9"
+networks:
+  mongodb-network:
+    name: mongodb-network
+    driver: bridge
+    ipam:
+        config:
+          - subnet: 172.16.57.0/24
+services:
+  ohlcv-reader-service:
+    build:
+      context: .
+      dockerfile: ohlcv_reader.Dockerfile
+    image: ohlcv-reader-service:$VERSION
+    container_name: ohlcv-reader-service
+    networks:
+      - mongodb-network
+    ports:
+      - "5000:5000"
+    environment:
+      - TARGET=$TARGET
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - EXCHANGE_ID="6228bd74e0e80e1ad98fd545"
+      - CLEANUP_PERIOD="1000"
+      - HISTORY_PERIOD="100000"
+    restart: unless-stopped

@@ -6,7 +6,7 @@ from flask import Flask, jsonify, make_response
 from flask.wrappers import Response
 from flask_httpauth import HTTPBasicAuth
 from flask_apscheduler import APScheduler
-from exchange import *
+from libs import *
 
 class Flask_App_Config:
     
@@ -41,9 +41,13 @@ app = Flask(__name__)
 
 logger = Logger("/logs/logs.log")
 
+db = MongoDB(os.environ.get("MONGO_USERNAME"), os.environ.get("MONGO_PASSWORD"))
 exchange_name, symbol, history_period, cleanup_period = load_config()
-exchange = Exchange(exchange_name, symbol, history_period, cleanup_period, logger)
-db = MongoDB(exchange_name, symbol, os.environ.get("MONGO_USERNAME"), os.environ.get("MONGO_PASSWORD"))
+
+exchange = Exchange(logger, db, os.environ.get("EXCHANGE_ID"))
+exchange.set_periods_params(os.environ.get("HISTORY_PERIOD"), os.environ.get("CLEANUP_PERIOD"))
+#db = MongoDB(exchange_name, symbol, os.environ.get("MONGO_USERNAME"), os.environ.get("MONGO_PASSWORD"))
+
 
 app.config.from_object(Flask_App_Config())
 scheduler = APScheduler()
