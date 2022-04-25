@@ -2,11 +2,11 @@
 FROM python:3.8
 LABEL maintainer "Aleksandr Ivanov <axeliandr@protonmail.com>"
 
-ADD ohlcv_reader.py main.py
+ADD src/ohlcv_reader.py main.py
 
 COPY .env .env
-COPY requirements.txt requirements.txt
-COPY libs/* libs/
+COPY src/ohlcv_reader_requirements.txt requirements.txt
+COPY src/libs/* libs/
 
 RUN pip install -r requirements.txt
 

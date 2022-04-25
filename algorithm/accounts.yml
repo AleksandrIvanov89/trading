@@ -10,7 +10,7 @@ services:
   accounts-service:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: accounts.Dockerfile
     image: accounts-service:$VERSION
     container_name: accounts-service
     networks:
@@ -19,11 +19,11 @@ services:
       - "5000:5001"
     environment:
       - TARGET=$TARGET
-      - REST_API_USER=$REST_API_USER
-      - REST_API_PASSWORD=$REST_API_PASSWORD
-      - MONGO_USERNAME=$MONGO_USERNAME
-      - MONGO_PASSWORD=$MONGO_PASSWORD
-      - DB_ACCOUNT_ID=$DB_ACCOUNT_ID
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - REST_API_BASE_URL=${REST_API_BASE_URL}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
     volumes:
-      - /home/axel/Documents/trading/trading/algorithm/accounts_service/logs:/logs
+      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
     restart: unless-stopped

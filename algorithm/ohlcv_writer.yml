@@ -10,6 +10,7 @@ services:
   ohlcv-writer-service:
     build:
       context: .
+      dockerfile: ohlcv_writer.Dockerfile
     image: ohlcv-writer-service:$VERSION
     container_name: ohlcv-writer-service
     networks:
@@ -17,13 +18,13 @@ services:
     ports:
       - "8055:8055"
     environment:
-      - TARGET=$TARGET
-      - REST_API_USER=$REST_API_USER
-      - REST_API_PASSWORD=$REST_API_PASSWORD
-      - REST_API_BASE_URL=$REST_API_BASE_URL
-      - FIREBASE_CREDENTIALS_PATH=$FIREBASE_CREDENTIALS_PATH
-      - MONGO_USERNAME=$MONGO_USERNAME
-      - MONGO_PASSWORD=$MONGO_PASSWORD
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - REST_API_BASE_URL=${REST_API_BASE_URL}
+      - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
     volumes:
-      - /home/axel/Documents/trading/trading/algorithm/ohlcv_writer_service/logs:/logs
+      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
     restart: unless-stopped

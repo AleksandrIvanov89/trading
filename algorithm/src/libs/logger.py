@@ -37,3 +37,15 @@ class Logger():
     def warning(self, in_text="Warning occurred"):
         self.logger.warning(in_text)
 
+    
+    def log(self, type, in_text):
+        getattr(self, type)(in_text)
+
+
+
+
+def log(message, type="info", logger=None):
+    if not(logger is None):
+        logger.log(type, message)
+    else:
+        print(f"{type}:\n{message}")

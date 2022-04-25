@@ -1,5 +1,4 @@
 pandas==1.4.1
-firebase-admin==5.2.0
 pymongo==4.0.2
 ccxt==1.75.39
 requests

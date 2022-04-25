@@ -18,12 +18,13 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - TARGET=$TARGET
+      - TARGET=${TARGET}
       - REST_API_USER=${REST_API_USER}
       - REST_API_PASSWORD=${REST_API_PASSWORD}
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
-      - EXCHANGE_ID="6228bd74e0e80e1ad98fd545"
-      - CLEANUP_PERIOD="1000"
-      - HISTORY_PERIOD="100000"
+      - CLEANUP_PERIOD=1000
+      - HISTORY_PERIOD=100000
+    volumes:
+      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
     restart: unless-stopped

@@ -1,6 +1,0 @@
-{
-    "exchange": "binance",
-    "symbol": "BTC/USDT",
-    "history_period": 100000,
-    "cleanup_period": 1000
-}
