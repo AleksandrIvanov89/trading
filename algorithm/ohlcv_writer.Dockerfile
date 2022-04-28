@@ -6,7 +6,7 @@ ADD src/ohlcv_writer.py main.py
 
 COPY .env .env
 # COPY firebase_credentials.json.env firebase_credentials.json
-COPY src/ohlcv_writer_requirements.txt requirements.txt
+COPY requirements/ohlcv_writer.txt requirements.txt
 COPY src/libs/* libs/
 
 RUN pip install -r requirements.txt

@@ -150,7 +150,7 @@ class MongoDB(Database):
         return pd.DataFrame(res)
 
     
-    def get_last_balance(self, account_id):
+    def get_account_last_balance(self, account_id):
         res = {}
         not_currency_fields = ['_id', 'account_id', 'timestamp']
         try:
@@ -158,9 +158,56 @@ class MongoDB(Database):
                     {'account_id': ObjectId(account_id)},
                     sort=[("timestamp", pymongo.DESCENDING)]
                     )
-            res = {
-                key: temp[key] for key in temp.keys() if not(key in not_currency_fields)
-                }
+            if temp:
+                res = {
+                    key: temp[key] for key in temp.keys() if not(key in not_currency_fields)
+                    }
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+        return res
+
+    def get_bot_balances(self, bot_id, from_timestamp=None):
+        res = []
+        try:
+            if from_timestamp is None:
+                res = list(
+                    self.db["bot_balances"].find(
+                        {'bot_id': ObjectId(bot_id)}
+                        ).sort(
+                            [("timestamp", pymongo.ASCENDING)]))
+            else:
+                res = list(
+                    self.db["bot_balances"].find(
+                        {"$and":[
+                            {'bot_id': ObjectId(bot_id)},
+                            {'timestamp': {'$gte': from_timestamp}}]}
+                        ).sort(
+                            [("timestamp", pymongo.ASCENDING)]))
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+        return pd.DataFrame(res)
+
+    
+    def get_bot_last_balance(self, bot_id):
+        res = {}
+        not_currency_fields = ['_id', 'bot_id', 'timestamp']
+        try:
+            temp = self.db["bot_balances"].find_one(
+                    {'bot_id': ObjectId(bot_id)},
+                    sort=[("timestamp", pymongo.DESCENDING)]
+                    )
+            if temp:
+                res = {
+                    key: temp[key] for key in temp.keys() if not(key in not_currency_fields)
+                    }
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",

@@ -1,0 +1,30 @@
+version: "3.9"
+networks:
+  mongodb-network:
+    name: mongodb-network
+    driver: bridge
+    ipam:
+        config:
+          - subnet: 172.16.57.0/24
+services:
+  accounts-writer-service:
+    build:
+      context: .
+      dockerfile: accounts_writer.Dockerfile
+    image: accounts-writer-service:$VERSION
+    container_name: accounts-writer-service
+    networks:
+      - mongodb-network
+    ports:
+      - "8055:8056"
+    environment:
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - REST_API_BASE_URL=${REST_API_BASE_URL}
+      - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
+    restart: unless-stopped

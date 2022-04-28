@@ -9,6 +9,7 @@ class Database():
     def __init__(self, logger=None):
         self.logger = logger
 
+
     @abstractmethod
     def get_last_ohlcv(self, exchange, pair, period):
         return None

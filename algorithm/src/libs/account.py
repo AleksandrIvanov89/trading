@@ -1,6 +1,7 @@
 from .logger import *
 from .exchange import *
-from .bot import *
+from .mongo import *
+from .tradingbot import TradingBot
 
 class Account():
 
@@ -8,14 +9,15 @@ class Account():
     bots = {}
 
     def __init__(self, db=None, account_id=None, logger=None):
+        self.logger = logger
         if not(db is None):
             self.init_from_db(db, account_id)
-        self.logger = logger
-        
+
 
     @staticmethod
     def get_symbols_from_pair(pair):
         return pair.split('/')
+
 
     @staticmethod
     def get_symbols_from_pairs(pairs):
@@ -24,11 +26,12 @@ class Account():
             result += pair.split('/')
         return list(set(result))
 
+
     def init_from_db(self, db, account_id):
         self.account_id = account_id
         self.exchange_id, bots_ids, self.type = db.get_account(account_id)
         self.exchange = Exchange(db, self.exchange_id, self.logger)
-        self.bots = {bot_id: Bot(db, bot_id) for bot_id in bots_ids}
+        self.bots = {bot_id: TradingBot(db, bot_id) for bot_id in bots_ids}
         self.set_balances_zero(self.get_symbols_from_pairs(self.exchange.pairs))
         self.set_balances_from_db(db)
 
@@ -38,7 +41,7 @@ class Account():
 
 
     def set_balances_from_db(self, db):
-        db_balances = db.get_last_balance(self.account_id)
+        db_balances = db.get_account_last_balance(self.account_id)
         for symbol, value in db_balances.items():
             self.balances[symbol] = value
 
@@ -48,7 +51,7 @@ class Account():
 
 
     def get_balance_current(self):
-        res = {symbol: value for symbol, value in self.balances.items()}
+        res = self.balances.copy()
         res.update({'timestamp': self.exchange.get_current_exchange_timestamp()})
         return res
 
