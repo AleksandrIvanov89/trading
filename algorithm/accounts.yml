@@ -16,7 +16,7 @@ services:
     networks:
       - mongodb-network
     ports:
-      - "5000:5001"
+      - "5001:5001"
     environment:
       - TARGET=$TARGET
       - REST_API_USER=${REST_API_USER}

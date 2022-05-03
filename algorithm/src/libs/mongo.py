@@ -1,7 +1,7 @@
 from .database import *
 from .logger import *
 import pymongo
-from bson.objectid import ObjectId
+#from bson.objectid import ObjectId
 import pandas as pd
 import inspect
 
@@ -113,7 +113,8 @@ class MongoDB(Database):
     def write_multiple_ohlcv(self, exchange, pair, period, tohlcv_list):
         try:
             # prepare ohlcvs for db
-            tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
+            #tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
+            tohlcv_db_list = list(map(self.preprocess_ohlcv, tohlcv_list))
             # write ohlcvs to db
             self.db[exchange][pair][period]["ohlcv"].insert_many(tohlcv_db_list)
         except Exception as e:
@@ -123,6 +124,58 @@ class MongoDB(Database):
                 self.logger
                 )
 
+    
+    def write_single_account_balance(self, balance):
+        try:
+            balance_db = self.preprocess_account_balance(balance)
+            self.db["account_balances"].insert_one(balance_db)
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+
+
+    def write_multiple_account_balances(self, balances):
+        try:
+            # prepare ohlcvs for db
+            #balance_db_list = self.preprocess_balances_list(balances)
+            balance_db_list = list(map(self.preprocess_account_balance, balances))
+            # write ohlcvs to db
+            self.db["account_balances"].insert_many(balance_db_list)
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+
+
+    def write_single_bot_balance(self, balance):
+        try:
+            balance_db = self.preprocess_bot_balance(balance)
+            self.db["bot_balances"].insert_one(balance_db)
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+
+
+    def write_multiple_bots_balances(self, balances):
+        try:
+            # prepare ohlcvs for db
+            balance_db_list = list(map(self.preprocess_bot_balance, balances))
+            # write ohlcvs to db
+            self.db["bot_balances"].insert_many(balance_db_list)
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
 
     def get_account_balances(self, account_id, from_timestamp=None):
         res = []

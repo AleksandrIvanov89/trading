@@ -52,13 +52,17 @@ class Account():
 
     def get_balance_current(self):
         res = self.balances.copy()
-        res.update({'timestamp': self.exchange.get_current_exchange_timestamp()})
+        res.update({
+            'timestamp': self.exchange.get_current_exchange_timestamp(),
+            'account_id': str(self.account_id)
+            })
         return res
 
 
     def get_balance_current_by_symbol(self, symbol):
         return {
             'timestamp': self.exchange.get_current_exchange_timestamp(),
+            'account_id': str(self.account_id),
             symbol: self.balances[symbol]
             }
 

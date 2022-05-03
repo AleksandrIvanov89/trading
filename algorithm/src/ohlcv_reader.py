@@ -38,7 +38,8 @@ db = MongoDB(
     )
 
 exchanges = {
-    exchange_i["name"]: Exchange(db, exchange_i['id'], logger) for exchange_i in db.get_active_exchanges()
+    exchange_i["name"]: Exchange(db, exchange_i['id'], logger)\
+        for exchange_i in db.get_active_exchanges()
     }
 
 app.config.from_object(Flask_App_Config())
@@ -94,7 +95,10 @@ def not_found(error):
         )
 
 
-@app.route('/ohlcv/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>/<int:from_timestamp>', methods=['GET'])
+@app.route(
+    '/ohlcv/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>/<int:from_timestamp>',
+    methods=['GET']
+    )
 @auth.login_required
 def get_ohlcv(exchange_name, symbol_1, symbol_2, period, from_timestamp):
     """
@@ -117,7 +121,10 @@ def get_ohlcv(exchange_name, symbol_1, symbol_2, period, from_timestamp):
         return df_to_json(pd.DataFrame([]))
 
 
-@app.route('/close/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>/<int:from_timestamp>', methods=['GET'])
+@app.route(
+    '/close/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>/<int:from_timestamp>',
+    methods=['GET']
+    )
 @auth.login_required
 def get_close(exchange_name, symbol_1, symbol_2, period, from_timestamp):
     """
@@ -140,7 +147,10 @@ def get_close(exchange_name, symbol_1, symbol_2, period, from_timestamp):
         return df_to_json(pd.DataFrame([]))
 
 
-@app.route('/current_close/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>', methods=['GET'])
+@app.route(
+    '/current_close/<string:exchange_name>/<string:symbol_1>/<string:symbol_2>/<string:period>',
+    methods=['GET']
+    )
 @auth.login_required
 def get_current_close(exchange_name, symbol_1, symbol_2, period):
     """

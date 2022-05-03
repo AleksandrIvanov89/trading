@@ -21,13 +21,6 @@ logger = Logger("/logs/logs.log")
 rest_api_user = os.environ.get("REST_API_USER")
 rest_api_password = os.environ.get("REST_API_PASSWORD")
 
-"""data_service_api = DataServiceAPI(
-    os.environ.get("REST_API_BASE_URL"),
-    os.environ.get("REST_API_USER"),
-    os.environ.get("REST_API_PASSWORD"),
-    logger
-    )"""
-
 db = MongoDB(
     os.environ.get("MONGO_USERNAME"),
     os.environ.get("MONGO_PASSWORD"),
@@ -77,23 +70,47 @@ def not_found(error):
         )
 
 
+@app.route('/all_accounts_balances', methods=['GET'])
+@auth.login_required
+def get_all_accounts_balances():
+    return Response(
+        json.dumps([account.get_balance_current() for account in accounts.values()]),
+        mimetype='application/json'
+        )
+
+
+@app.route('/all_bots_balances', methods=['GET'])
+@auth.login_required
+def get_all_bots_balances():
+    res = []
+    for account in accounts.values():
+        for bot in account.bots.values():
+            res.append(bot.get_balances())
+    return Response(json.dumps(res), mimetype='application/json')
+
+
 @app.route('/account_balances/<string:account_id>', methods=['GET'])
 @auth.login_required
 def get_account_balances(account_id):
-    return jsonify(
-        accounts[account_id].get_balance_current() if account_id in accounts.keys() else {}
+    return Response(
+        json.dumps(accounts[account_id].get_balance_current() if account_id in accounts.keys() else {}),
+        mimetype='application/json'
         )
 
 
 @app.route('/bot_balances/<string:bot_id>', methods=['GET'])
 @auth.login_required
 def get_bot_balances(bot_id):
-    return jsonify(
-        accounts[bots[bot_id]].bots[bot_id].get_balances() if bot_id in bots.keys() else {}
+    return Response(
+        json.dumps(accounts[bots[bot_id]].bots[bot_id].get_balances() if bot_id in bots.keys() else {}),
+        mimetype='application/json'
         )
 
 
-@app.route('/make_operation/<string:operation_type>/<string:bot_id>/<int:amount>', methods=['POST'])
+@app.route(
+    '/make_operation/<string:operation_type>/<string:bot_id>/<int:amount>',
+    methods=['POST']
+    )
 @auth.login_required
 def make_operation(operation_type, bot_id, amount):
     accounts[bots[bot_id]].make_operation(operation_type, bot_id, amount)
@@ -111,7 +128,7 @@ if __name__ == '__main__':
     initialize()
     app.run(
         host='0.0.0.0',
-        port=5000,
+        port=5001,
         debug=True,
         threaded=True,
         use_reloader=False

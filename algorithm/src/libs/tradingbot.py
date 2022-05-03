@@ -42,7 +42,7 @@ class TradingBot():
     
     def get_balances(self):
         res = self.balance.copy()
-        res.update({'timestamp': self.exchange.get_current_exchange_timestamp()})
+        res.update({'timestamp': self.exchange.get_current_exchange_timestamp(), 'bot_id': self.bot_id})
         return res
 
 

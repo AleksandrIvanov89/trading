@@ -3,6 +3,7 @@ from ccxt import Exchange as ccxtExchange
 import time
 from .data_service_api import *
 
+from bson.objectid import ObjectId
 
 class Database():
 
@@ -30,6 +31,25 @@ class Database():
         pass
 
     
+    @abstractmethod
+    def write_single_account_balance(self, balance):
+        pass
+
+
+    @abstractmethod
+    def write_multiple_account_balances(self, balances):
+        pass
+
+    @abstractmethod
+    def write_single_bot_balance(self, balance):
+        pass
+
+
+    @abstractmethod
+    def write_multiple_bots_balances(self, balances):
+        pass
+
+    
     def write_ohlcv(self, exchange, pair, period, tohlcv_list):
         list_len = len(tohlcv_list)
         if list_len > 1:
@@ -48,6 +68,14 @@ class Database():
                 )
 
 
+    def write_accounts_balances(self, data):
+        data_len = len(data)
+        if data_len > 1:
+            self.write_single_account_balance(data)
+        elif data_len == 1:
+            self.write_multiple_account_balances(data[0])
+
+
     def get_last_timestamp(self, exchange, pair, period):
         result = 0
         tohlcv = self.get_last_ohlcv(exchange, pair, period)
@@ -55,7 +83,27 @@ class Database():
             if tohlcv['timestamp']:
                 result = tohlcv['timestamp']
         return result
+
+
+    def preprocess_account_balance(self, balance):
+        not_currency_fields = ['account_id', 'timestamp']
+        res = {symbol: value for symbol, value in balance.items() if not(symbol in not_currency_fields)}
+        res.update({
+            "timestamp": balance['timestamp'],
+            "account_id": ObjectId(balance['account_id'])
+            })
+        return res
+
     
+    def preprocess_bot_balance(self, balance):
+        not_currency_fields = ['bot_id', 'timestamp']
+        res = {symbol: value for symbol, value in balance.items() if not(symbol in not_currency_fields)}
+        res.update({
+            "timestamp": balance['timestamp'],
+            "bot_id": ObjectId(balance['bot_id'])
+            })
+        return res
+
 
     def preprocess_ohlcv(self, tohlcv):
         return {
@@ -69,5 +117,5 @@ class Database():
         }
 
 
-    def preprocess_ohlcv_list(self, tohlcv_list):
-        return [self.preprocess_ohlcv(tohlcv) for tohlcv in tohlcv_list]
+    def preprocess_list(self, func, data_list):
+        return [func(item) for item in data_list]
