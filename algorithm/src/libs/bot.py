@@ -1,6 +1,6 @@
 from .exchange import *
 
-class TradingBot():
+class Bot():
     
     bot_id = ''
     #balance = {}#{'BTC': 1.0, 'USDT': 1.0}
@@ -42,7 +42,10 @@ class TradingBot():
     
     def get_balances(self):
         res = self.balance.copy()
-        res.update({'timestamp': self.exchange.get_current_exchange_timestamp(), 'bot_id': self.bot_id})
+        res.update({
+            'timestamp': self.exchange.get_current_exchange_timestamp(),
+            'bot_id': self.bot_id
+            })
         return res
 
 
@@ -55,16 +58,16 @@ class TradingBot():
 
     def buy_all(self, amount):
         price = self.exchange.get_price(
-            self.balance[self.symbols[1]] / self.exchange.get_ticker()
+            self.balance[self.symbols[1]] / self.exchange.get_ticker()['ask']
             )
-        self.balance[self.symbols[0]] += self.balance[self.symbols[1]] / price * (1.0 - self.exchange.fee)
+        self.balance[self.symbols[0]] += self.balance[self.symbols[1]] / price['ask'] * (1.0 - self.exchange.fee)
         self.balance[self.symbols[1]] = 0.0
         
 
 
     def sell_all(self, amount):
         price = self.exchange.get_price(self.balance[self.symbols[0]])
-        self.balance[self.symbols[1]] = self.balance[self.symbols[0]] * price
+        self.balance[self.symbols[1]] += self.balance[self.symbols[0]] * price['bid']
         self.balance[self.symbols[0]] = 0.0
         
 

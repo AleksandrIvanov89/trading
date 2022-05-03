@@ -1,7 +1,6 @@
 import os
 import json
 from libs import *
-
 from flask import Flask, jsonify, make_response
 from flask.wrappers import Response
 from flask_httpauth import HTTPBasicAuth
@@ -29,7 +28,8 @@ db = MongoDB(
     )
 
 accounts = {
-    account['_id']: Account(db, account['_id'], logger) for account in db.get_all_accounts()
+    account['_id']: Account(db, account['_id'], logger)\
+        for account in db.get_all_accounts()
     }
 
 bots = {}
@@ -74,7 +74,8 @@ def not_found(error):
 @auth.login_required
 def get_all_accounts_balances():
     return Response(
-        json.dumps([account.get_balance_current() for account in accounts.values()]),
+        json.dumps([account.get_balance_current()\
+            for account in accounts.values()]),
         mimetype='application/json'
         )
 
@@ -93,7 +94,8 @@ def get_all_bots_balances():
 @auth.login_required
 def get_account_balances(account_id):
     return Response(
-        json.dumps(accounts[account_id].get_balance_current() if account_id in accounts.keys() else {}),
+        json.dumps(accounts[account_id].get_balance_current()\
+            if account_id in accounts.keys() else {}),
         mimetype='application/json'
         )
 
@@ -102,7 +104,8 @@ def get_account_balances(account_id):
 @auth.login_required
 def get_bot_balances(bot_id):
     return Response(
-        json.dumps(accounts[bots[bot_id]].bots[bot_id].get_balances() if bot_id in bots.keys() else {}),
+        json.dumps(accounts[bots[bot_id]].bots[bot_id].get_balances()\
+            if bot_id in bots.keys() else {}),
         mimetype='application/json'
         )
 
@@ -113,12 +116,19 @@ def get_bot_balances(bot_id):
     )
 @auth.login_required
 def make_operation(operation_type, bot_id, amount):
-    accounts[bots[bot_id]].make_operation(operation_type, bot_id, amount)
+    account_id = bots[bot_id]
+    if accounts[account_id].make_operation(operation_type, bot_id, amount):
+        db.write_operation(
+            operation_type,
+            account_id,
+            bot_id,
+            amount,
+            accounts[account_id].bots[bot_id].pair,
+            accounts[account_id].exchange.get_current_exchange_timestamp()
+            )
 
 
 def initialize():
-    print(accounts)
-    #print(accounts.balances)
     for account in accounts.values():
         for bot in account.bots.keys():
             bots.update({bot: account.account_id})

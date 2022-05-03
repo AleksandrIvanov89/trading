@@ -16,7 +16,7 @@ services:
     networks:
       - mongodb-network
     ports:
-      - "8055:8056"
+      - "8057:8057"
     environment:
       - TARGET=${TARGET}
       - REST_API_USER=${REST_API_USER}

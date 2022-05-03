@@ -10,10 +10,17 @@ class Logger():
         self.ch = logging.StreamHandler()
         self.ch.setLevel(logging.INFO)
         # Create file handler and set level to debug
-        self.fh = logging.FileHandler(in_filename, mode='a', encoding=None, delay=False)
+        self.fh = logging.FileHandler(
+            in_filename,
+            mode='a',
+            encoding=None,
+            delay=False
+            )
         self.fh.setLevel(logging.WARNING)
         # Create formatter
-        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        self.formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s'
+            )
         # Add formatter to handlers
         self.ch.setFormatter(self.formatter)
         self.fh.setFormatter(self.formatter)

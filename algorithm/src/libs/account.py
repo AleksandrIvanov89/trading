@@ -1,7 +1,7 @@
 from .logger import *
 from .exchange import *
 from .mongo import *
-from .tradingbot import TradingBot
+from .bot import *
 
 class Account():
 
@@ -31,7 +31,7 @@ class Account():
         self.account_id = account_id
         self.exchange_id, bots_ids, self.type = db.get_account(account_id)
         self.exchange = Exchange(db, self.exchange_id, self.logger)
-        self.bots = {bot_id: TradingBot(db, bot_id) for bot_id in bots_ids}
+        self.bots = {bot_id: Bot(db, bot_id) for bot_id in bots_ids}
         self.set_balances_zero(self.get_symbols_from_pairs(self.exchange.pairs))
         self.set_balances_from_db(db)
 
@@ -73,10 +73,21 @@ class Account():
     
 
     def make_operation(self, operation_type, bot_id, amount=None):
-        if bot_id in self.bots.keys():
-            self.apply_bot_operation(
-                self.bots[bot_id].make_operation(operation_type, amount)
+        res = False
+        try:
+            if bot_id in self.bots.keys():
+                self.apply_bot_operation(
+                    self.bots[bot_id].make_operation(operation_type, amount)
+                    )
+                res = True
+        except Exception as e:
+            res = False
+            log(
+                f"Exception in Accounts:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
                 )
+        return res
 
 
     def change_balance(self, symbol, amount):

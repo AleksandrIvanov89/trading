@@ -97,6 +97,24 @@ class MongoDB(Database):
                 )
             return pd.DataFrame([])
     
+    
+    def write_operation(self, operation_type, account_id, bot_id, amount, pair, timestamp):
+        try:
+            self.db["operations"].insert_one({
+                "timestamp": timestamp,
+                "type": operation_type,
+                "account_id": ObjectId(account_id),
+                "bot_id": ObjectId(bot_id),
+                "amount": amount,
+                "pair": pair
+            })
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+
 
     def write_single_ohlcv(self, exchange, pair, period, tohlcv):
         try:
@@ -113,7 +131,6 @@ class MongoDB(Database):
     def write_multiple_ohlcv(self, exchange, pair, period, tohlcv_list):
         try:
             # prepare ohlcvs for db
-            #tohlcv_db_list = self.preprocess_ohlcv_list(tohlcv_list)
             tohlcv_db_list = list(map(self.preprocess_ohlcv, tohlcv_list))
             # write ohlcvs to db
             self.db[exchange][pair][period]["ohlcv"].insert_many(tohlcv_db_list)
@@ -140,7 +157,6 @@ class MongoDB(Database):
     def write_multiple_account_balances(self, balances):
         try:
             # prepare ohlcvs for db
-            #balance_db_list = self.preprocess_balances_list(balances)
             balance_db_list = list(map(self.preprocess_account_balance, balances))
             # write ohlcvs to db
             self.db["account_balances"].insert_many(balance_db_list)
@@ -185,7 +201,8 @@ class MongoDB(Database):
                     self.db["account_balances"].find(
                         {'account_id': ObjectId(account_id)}
                         ).sort(
-                            [("timestamp", pymongo.ASCENDING)]))
+                            [("timestamp", pymongo.ASCENDING)])
+                            )
             else:
                 res = list(
                     self.db["account_balances"].find(
@@ -193,7 +210,8 @@ class MongoDB(Database):
                             {'account_id': ObjectId(account_id)},
                             {'timestamp': {'$gte': from_timestamp}}]}
                         ).sort(
-                            [("timestamp", pymongo.ASCENDING)]))
+                            [("timestamp", pymongo.ASCENDING)])
+                            )
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
@@ -213,7 +231,8 @@ class MongoDB(Database):
                     )
             if temp:
                 res = {
-                    key: temp[key] for key in temp.keys() if not(key in not_currency_fields)
+                    key: temp[key] for key in temp.keys()\
+                        if not(key in not_currency_fields)
                     }
         except Exception as e:
             log(
@@ -231,7 +250,8 @@ class MongoDB(Database):
                     self.db["bot_balances"].find(
                         {'bot_id': ObjectId(bot_id)}
                         ).sort(
-                            [("timestamp", pymongo.ASCENDING)]))
+                            [("timestamp", pymongo.ASCENDING)])
+                            )
             else:
                 res = list(
                     self.db["bot_balances"].find(
@@ -239,7 +259,8 @@ class MongoDB(Database):
                             {'bot_id': ObjectId(bot_id)},
                             {'timestamp': {'$gte': from_timestamp}}]}
                         ).sort(
-                            [("timestamp", pymongo.ASCENDING)]))
+                            [("timestamp", pymongo.ASCENDING)])
+                            )
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
@@ -259,7 +280,8 @@ class MongoDB(Database):
                     )
             if temp:
                 res = {
-                    key: temp[key] for key in temp.keys() if not(key in not_currency_fields)
+                    key: temp[key] for key in temp.keys()\
+                        if not(key in not_currency_fields)
                     }
         except Exception as e:
             log(

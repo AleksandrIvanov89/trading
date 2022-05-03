@@ -11,6 +11,6 @@ COPY src/libs/* libs/
 
 RUN pip install -r requirements.txt
 
-EXPOSE 8055
+EXPOSE 8056
 
 CMD [ "python", "./main.py" ]
