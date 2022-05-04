@@ -1,7 +1,7 @@
 import os
 import json
 from libs import *
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, request
 from flask.wrappers import Response
 from flask_httpauth import HTTPBasicAuth
 
@@ -111,18 +111,23 @@ def get_bot_balances(bot_id):
 
 
 @app.route(
-    '/make_operation/<string:operation_type>/<string:bot_id>/<int:amount>',
+    '/make_operation',
     methods=['POST']
     )
 @auth.login_required
-def make_operation(operation_type, bot_id, amount):
+def make_operation():
+    bot_id = request.form['bot_id']
     account_id = bots[bot_id]
-    if accounts[account_id].make_operation(operation_type, bot_id, amount):
+    if accounts[account_id].make_operation(
+        request.form['operation_type'],
+        bot_id,
+        request.form['amount']
+        ):
         db.write_operation(
-            operation_type,
+            request.form['operation_type'],
             account_id,
             bot_id,
-            amount,
+            request.form['amount'],
             accounts[account_id].bots[bot_id].pair,
             accounts[account_id].exchange.get_current_exchange_timestamp()
             )

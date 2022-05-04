@@ -1,0 +1,123 @@
+version: "3.9"
+networks:
+  mongodb-network:
+    name: mongodb-network
+    driver: bridge
+    ipam:
+        config:
+          - subnet: 172.16.57.0/24
+services:
+  ohlcv-reader-service:
+    build:
+      context: .
+      dockerfile: ohlcv_reader.Dockerfile
+    image: ohlcv-reader-service:$VERSION
+    container_name: ohlcv-reader-service
+    networks:
+      - mongodb-network
+    ports:
+      - "5000:5000"
+    environment:
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - CLEANUP_PERIOD=1000
+      - HISTORY_PERIOD=100000
+    volumes:
+      - ${LOGS_PATH}:/logs
+    restart: unless-stopped
+
+  ohlcv-writer-service:
+    build:
+      context: .
+      dockerfile: ohlcv_writer.Dockerfile
+    image: ohlcv-writer-service:$VERSION
+    container_name: ohlcv-writer-service
+    networks:
+      - mongodb-network
+    ports:
+      - "8055:8055"
+    depends_on:
+      - ohlcv-reader-service
+    environment:
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - REST_API_BASE_URL=${REST_API_BASE_URL}
+      - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - ${LOGS_PATH}:/logs
+    restart: unless-stopped
+
+  accounts-service:
+    build:
+      context: .
+      dockerfile: accounts.Dockerfile
+    image: accounts-service:$VERSION
+    container_name: accounts-service
+    networks:
+      - mongodb-network
+    ports:
+      - "5001:5001"
+    environment:
+      - TARGET=$TARGET
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - REST_API_BASE_URL=${REST_API_BASE_URL}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - ${LOGS_PATH}:/logs
+    restart: unless-stopped
+  
+  accounts-writer-service:
+    build:
+      context: .
+      dockerfile: accounts_writer.Dockerfile
+    image: accounts-writer-service:$VERSION
+    container_name: accounts-writer-service
+    networks:
+      - mongodb-network
+    ports:
+      - "8057:8057"
+    depends_on:
+      - accounts-service
+    environment:
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - ACCOUNTS_REST_API_BASE_URL=${ACCOUNTS_REST_API_BASE_URL}
+      - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - ${LOGS_PATH}:/logs
+    restart: unless-stopped
+
+  bots-writer-service:
+    build:
+      context: .
+      dockerfile: bots_writer.Dockerfile
+    image: bots-writer-service:$VERSION
+    container_name: bots-writer-service
+    networks:
+      - mongodb-network
+    ports:
+      - "8056:8056"
+    depends_on:
+      - accounts-service
+    environment:
+      - TARGET=${TARGET}
+      - REST_API_USER=${REST_API_USER}
+      - REST_API_PASSWORD=${REST_API_PASSWORD}
+      - ACCOUNTS_REST_API_BASE_URL=${ACCOUNTS_REST_API_BASE_URL}
+      - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - ${LOGS_PATH}:/logs
+    restart: unless-stopped

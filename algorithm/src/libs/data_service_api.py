@@ -1,4 +1,5 @@
 import requests
+import json
 from .logger import *
 
 class DataServiceAPI():
@@ -11,7 +12,22 @@ class DataServiceAPI():
 
     def get_request(self, url):
         result = []
-        response = requests.get(f"{self.base_url}/{url}", auth=self.auth)
+        response = requests.get(
+            f"{self.base_url}/{url}",
+            auth=self.auth
+            )
+        if response.status_code == 200:
+            result = response.json()
+        return result
+
+    
+    def post_request(self, url, data={}):
+        result = []
+        response = requests.post(
+            f"{self.base_url}/{url}",
+            data=json.dumps(data),
+            auth=self.auth
+            )
         if response.status_code == 200:
             result = response.json()
         return result
@@ -53,3 +69,13 @@ class DataServiceAPI():
     
     def get_all_bots_balances(self):
         return self.get_request(f"all_bots_balances")
+
+
+    def post_operation(self, operation_type, bot_id, amount):
+        return self.post_request(
+            f"make_operation/{operation_type}/{bot_id}/{amount}",
+            {
+                'operation_type': operation_type,
+                'bot_id': bot_id,
+                'amount': amount
+                })

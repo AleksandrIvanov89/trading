@@ -26,5 +26,5 @@ services:
       - CLEANUP_PERIOD=1000
       - HISTORY_PERIOD=100000
     volumes:
-      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
+      - ${LOGS_PATH}:/logs
     restart: unless-stopped

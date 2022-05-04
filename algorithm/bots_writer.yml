@@ -26,5 +26,5 @@ services:
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
     volumes:
-      - /home/axel/Documents/trading/trading/algorithm/logs:/logs
+      - ${LOGS_PATH}:/logs
     restart: unless-stopped

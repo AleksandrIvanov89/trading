@@ -3,7 +3,7 @@ from .exchange import *
 class Bot():
     
     bot_id = ''
-    #balance = {}#{'BTC': 1.0, 'USDT': 1.0}
+    balance = {}
     symbols = []
     order_types = ['buy', 'sell', 'buy_all', 'sell_all']
 
@@ -16,8 +16,7 @@ class Bot():
         self.bot_id = bot_id
         self.exchange_id, self.pair, self.algorithm_id, self.type, self.state = db.get_bot(bot_id)
         self.symbols = self.pair.split('/')
-        self.exchange = Exchange()
-        self.exchange.init_from_db(db, self.exchange_id)
+        self.exchange = Exchange(db, self.exchange_id)
         self.balance = {symbol: 0.0 for symbol in self.symbols}
         self.init_balances_from_db(db)
 

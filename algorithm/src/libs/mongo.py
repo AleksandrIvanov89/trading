@@ -41,6 +41,14 @@ class MongoDB(Database):
         return res['exchange_id'], res['symbol'], res['algorithm_id'], res['type'], res['state']
 
     
+    def get_algorithm(self, algorithm_id):
+        res = dict(
+            self.db['algorithms'].find_one(
+                {"_id": ObjectId(algorithm_id)}
+                ))
+        return res
+
+    
     def get_exchange(self, exchange_id):
         res = dict(
             self.db['exchanges'].find_one(
