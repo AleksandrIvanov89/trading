@@ -5,3 +5,5 @@ from .exchange import *
 from .bot import *
 from .account import *
 from .algorithm import *
+from .ohlcv_algo import *
+from .cross_ma import *

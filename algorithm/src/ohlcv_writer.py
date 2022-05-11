@@ -27,7 +27,7 @@ exchanges = {
 
 def update(exchange, pair, period):
     last_timestamp_from_db = db.get_last_timestamp(
-        exchange.exchange_name,
+        exchange.exchange_id,
         pair,
         period
         )
@@ -38,7 +38,7 @@ def update(exchange, pair, period):
         last_timestamp_from_db
         )
     db.write_ohlcv(
-        exchange.exchange_name,
+        exchange.exchange_id,
         pair,
         period,
         tohlcv_list

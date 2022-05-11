@@ -1,6 +1,7 @@
 import requests
 import json
 from .logger import *
+import inspect
 
 class DataServiceAPI():
     
@@ -12,24 +13,38 @@ class DataServiceAPI():
 
     def get_request(self, url):
         result = []
-        response = requests.get(
-            f"{self.base_url}/{url}",
-            auth=self.auth
-            )
-        if response.status_code == 200:
-            result = response.json()
+        try:
+            response = requests.get(
+                f"{self.base_url}/{url}",
+                auth=self.auth
+                )
+            if response.status_code == 200:
+                result = response.json()
+        except Exception as e:
+            log(
+                f"Exception in DataServiceAPI:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
         return result
 
     
     def post_request(self, url, data={}):
         result = []
-        response = requests.post(
-            f"{self.base_url}/{url}",
-            data=json.dumps(data),
-            auth=self.auth
-            )
-        if response.status_code == 200:
-            result = response.json()
+        try:
+            response = requests.post(
+                f"{self.base_url}/{url}",
+                data=json.dumps(data),
+                auth=self.auth
+                )
+            if response.status_code == 200:
+                result = response.json()
+        except Exception as e:
+            log(
+                f"Exception in DataServiceAPI:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
         return result
 
 

@@ -43,7 +43,7 @@ class Bot():
         res = self.balance.copy()
         res.update({
             'timestamp': self.exchange.get_current_exchange_timestamp(),
-            'bot_id': self.bot_id
+            'bot_id': str(self.bot_id)
             })
         return res
 

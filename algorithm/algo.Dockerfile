@@ -2,15 +2,14 @@
 FROM python:3.8
 LABEL maintainer "Aleksandr Ivanov <axeliandr@protonmail.com>"
 
-ADD src/ohlcv_writer.py main.py
+ADD src/algo.py main.py
 
 COPY .env .env
-# COPY firebase_credentials.json.env firebase_credentials.json
-COPY requirements/writer.txt requirements.txt
+COPY requirements/algo.txt requirements.txt
 COPY src/libs/* libs/
 
 RUN pip install -r requirements.txt
 
-EXPOSE 8055
+EXPOSE 8060
 
 CMD [ "python", "./main.py" ]

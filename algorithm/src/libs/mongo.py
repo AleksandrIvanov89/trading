@@ -71,12 +71,19 @@ class MongoDB(Database):
                 } for exchange_i in resp]
 
 
-    def get_last_ohlcv(self, exchange, pair, period):
+    def get_last_ohlcv(self, exchange_id, pair, period):
         result = 0
         try:
-            result = self.db[exchange][pair][period].find_one(
+            """result = self.db[exchange][pair][period].find_one(
                 sort=[("timestamp", pymongo.DESCENDING)]
-                )
+                )"""
+            result = self.db['ohlcvs'].find_one(
+                {"$and": 
+                [
+                    {'exchange_id': ObjectId(exchange_id)},
+                    {'pair': pair},
+                    {'period': period}
+                    ]}, sort=[("timestamp", pymongo.DESCENDING)])
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
@@ -86,7 +93,7 @@ class MongoDB(Database):
         return result
     
 
-    def get_ohlcv(self, exchange, pair, period, from_timestamp=None):
+    """def get_ohlcv(self, exchange, pair, period, from_timestamp=None):
         try:
             res = self.db[exchange][pair][period]["ohlcv"].find().sort(
                 [("timestamp", pymongo.ASCENDING)]
@@ -96,6 +103,34 @@ class MongoDB(Database):
                         ).sort(
                             [("timestamp", pymongo.ASCENDING)]
                             )
+            return pd.DataFrame(list(res))
+        except Exception as e:
+            log(
+                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                'exception',
+                self.logger
+                )
+            return pd.DataFrame([])"""
+    
+    def get_ohlcv(self, exchange_id, pair, period, from_timestamp=None):
+        try:
+            res = self.db['ohlcvs'].find(
+                {"$and": 
+                [
+                    {'exchange_id': ObjectId(exchange_id)},
+                    {'pair': pair},
+                    {'period': period}
+                    ]}).sort(
+                        [("timestamp", pymongo.ASCENDING)]
+                        ) if from_timestamp is None else self.db['ohlcv'].find(
+                            {"$and": 
+                            [
+                                {'exchange_id': ObjectId(exchange_id)},
+                                {'pair': pair},
+                                {'period': period},
+                                {'timestamp': {'$gte': from_timestamp}}
+                                ]}).sort(
+                                    [("timestamp", pymongo.ASCENDING)])
             return pd.DataFrame(list(res))
         except Exception as e:
             log(
@@ -124,10 +159,11 @@ class MongoDB(Database):
                 )
 
 
-    def write_single_ohlcv(self, exchange, pair, period, tohlcv):
+    def write_single_ohlcv(self, exchange_id, pair, period, tohlcv):
         try:
-            thohlcv_db = self.preprocess_ohlcv(tohlcv)
-            self.db[exchange][pair][period]["ohlcv"].insert_one(thohlcv_db)
+            thohlcv_db = self.preprocess_ohlcv(ObjectId(exchange_id), pair, period, tohlcv)
+            #self.db[exchange][pair][period]["ohlcv"].insert_one(thohlcv_db)
+            self.db['ohlcvs'].insert_one(tohlcv)
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
@@ -136,12 +172,16 @@ class MongoDB(Database):
                 )
 
 
-    def write_multiple_ohlcv(self, exchange, pair, period, tohlcv_list):
+    def write_multiple_ohlcv(self, exchange_id, pair, period, tohlcv_list):
         try:
             # prepare ohlcvs for db
-            tohlcv_db_list = list(map(self.preprocess_ohlcv, tohlcv_list))
+            #tohlcv_db_list = list(map(self.preprocess_ohlcv, tohlcv_list))
+            tohlcv_db_list = [
+                self.preprocess_ohlcv(ObjectId(exchange_id), pair, period, ohlcv) for ohlcv in tohlcv_list
+                ]
             # write ohlcvs to db
-            self.db[exchange][pair][period]["ohlcv"].insert_many(tohlcv_db_list)
+            #self.db[exchange][pair][period]["ohlcv"].insert_many(tohlcv_db_list)
+            self.db['ohlcvs'].insert_many(tohlcv_db_list)
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",

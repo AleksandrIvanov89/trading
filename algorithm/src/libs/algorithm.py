@@ -1,9 +1,9 @@
 import os
 import numpy as np
-from ..logger import *
-from ..bot import *
-from ..mongo import *
-from ..data_service_api import *
+from .logger import *
+from .bot import *
+from .mongo import *
+from .data_service_api import *
 
 class Algorithm():
     

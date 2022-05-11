@@ -38,6 +38,7 @@ class Exchange():
         
 
     def init_from_db(self, db, exchange_id):
+        self.exchange_id = exchange_id
         self.exchange_name, self.ccxt_id, self.pairs = db.get_exchange(exchange_id)
         self.connect_to_exchange()
 
@@ -94,7 +95,7 @@ class Exchange():
                     from_timestamp = tohlcv_list[-1][0] + 1
             except Exception as e:
                 log(
-                    f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                    f"Exception in Exchange:{inspect.stack()[0][3]}\n{e}",
                     'exception',
                     self.logger
                     )
@@ -119,7 +120,7 @@ class Exchange():
             for period in self.periods.keys():
                 try:
                     temp = self.tohlcv[pair][period] = db.get_ohlcv(
-                        self.exchange_name,
+                        self.exchange_id,
                         pair,
                         period,
                         from_timestamp
@@ -136,7 +137,7 @@ class Exchange():
                             )
                 except Exception as e:
                     log(
-                        f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                        f"Exception in Exchange:{inspect.stack()[0][3]}\n{e}",
                         'exception',
                         self.logger
                         )
@@ -281,7 +282,7 @@ class Exchange():
             ticker = {'ask': temp_ticker['ask'], 'bid': temp_ticker['bid']}
         except Exception as e:
             log(
-                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                f"Exception in Exchange:{inspect.stack()[0][3]}\n{e}",
                 'exception',
                 self.logger
                 )
@@ -310,7 +311,7 @@ class Exchange():
             ticker = self.calc_price_by_order_book(order_book, amount)
         except Exception as e:
             log(
-                f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
+                f"Exception in Exchange:{inspect.stack()[0][3]}\n{e}",
                 'exception',
                 self.logger
                 )

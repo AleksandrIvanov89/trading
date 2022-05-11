@@ -7,24 +7,26 @@ networks:
         config:
           - subnet: 172.16.57.0/24
 services:
-  ohlcv-writer-service:
+  algo-service:
     build:
       context: .
-      dockerfile: ohlcv_writer.Dockerfile
-    image: ohlcv-writer-service:$VERSION
-    container_name: ohlcv-writer-service
+      dockerfile: algo.Dockerfile
+    image: algo-service:$VERSION
+    container_name: algo-service
     networks:
       - mongodb-network
     ports:
-      - "8055:8055"
+      - "8060:8060"
     environment:
       - TARGET=${TARGET}
       - REST_API_USER=${REST_API_USER}
       - REST_API_PASSWORD=${REST_API_PASSWORD}
       - ACCOUNTS_REST_API_BASE_URL=${ACCOUNTS_REST_API_BASE_URL}
+      - OHLCV_REST_API_BASE_URL=${OHLCV_REST_API_BASE_URL}
       - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - BOT_ID=6262b9bae23f2a0383f66a8b
     volumes:
       - ${LOGS_PATH}:/logs
     restart: unless-stopped
