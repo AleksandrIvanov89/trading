@@ -26,7 +26,7 @@ services:
       - FIREBASE_CREDENTIALS_PATH=${FIREBASE_CREDENTIALS_PATH}
       - MONGO_USERNAME=${MONGO_USERNAME}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
-      - BOT_ID=6262b9bae23f2a0383f66a8b
+      - BOT_ID=62866a8a56025eccf857fc22
     volumes:
       - ${LOGS_PATH}:/logs
     restart: unless-stopped

@@ -8,7 +8,7 @@ from libs import *
 logger = Logger("/logs/logs.log")
     
 data_service_api = DataServiceAPI(
-    os.environ.get("REST_API_BASE_URL"),
+    os.environ.get("OHLCV_REST_API_BASE_URL"),
     os.environ.get("REST_API_USER"),
     os.environ.get("REST_API_PASSWORD"),
     logger

@@ -163,7 +163,7 @@ class MongoDB(Database):
         try:
             thohlcv_db = self.preprocess_ohlcv(ObjectId(exchange_id), pair, period, tohlcv)
             #self.db[exchange][pair][period]["ohlcv"].insert_one(thohlcv_db)
-            self.db['ohlcvs'].insert_one(tohlcv)
+            self.db['ohlcvs'].insert_one(thohlcv_db)
         except Exception as e:
             log(
                 f"Exception in MongoDB:{inspect.stack()[0][3]}\n{e}",
